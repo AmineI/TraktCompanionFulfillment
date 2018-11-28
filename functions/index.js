@@ -19,6 +19,18 @@ const functions = require('firebase-functions');
 //Todo : Change the Staging Client ID to the official client ID in firebase configuration.
 const CLIENT_ID = functions.config().traktclient.id;
 
+/** Dialogflow Contexts {@link https://dialogflow.com/docs/contexts/input-output-contexts} */
+    //Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
+const AppContexts = {
+        LIST_ADDITION: 'ListAdditionData',
+        CHECKIN_ADDITION: 'CheckinAdditionData',
+    };
+
+/** Dialogflow Context Lifespans {@link https://dialogflow.com/docs/contexts#lifespan} */
+const Lifespans = {
+    DEFAULT: 5,
+};
+
 
 // Create a Dialogflow client instance.
 const TraktAgent = dialogflow({
@@ -30,6 +42,11 @@ const TraktAgent = dialogflow({
 });
 
 
+//Todo Set conversations as end when needed
+
 // Set the DialogflowApp object to handle the HTTPS POST request.
 exports.dialogflowFirebaseFulfillmentBeta = functions
     .https.onRequest(TraktAgent);
+
+//Todo : Update Actions Console on Google directory info before deploying any Prod/Beta/Alpha to the public.
+//It is filled with FAKE data.
