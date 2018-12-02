@@ -20,8 +20,8 @@ const CLIENT_ID = functions.config().traktclient.id;
 //>firebase functions:config:set traktclient.endpoint="https://api.trakt.tv"
 const TraktAPIEndpoint = functions.config().traktclient.endpoint;
 
+//Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
 /** Dialogflow Contexts {@link https://dialogflow.com/docs/contexts/input-output-contexts} */
-    //Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
 const AppContexts = {
         LIST_ADDITION: 'ListAdditionData',
         CHECKIN_ADDITION: 'CheckinAdditionData',
@@ -36,10 +36,7 @@ const Lifespans = {
 // Create a Dialogflow client instance.
 const TraktAgent = dialogflow({
     // The Trakt API client ID for my Action.
-    clientId: CLIENT_ID,
-    //Debug mode enabled on master temporarily.
-    //Todo : Figure out its usefulness and remove it
-    debug: true,
+    clientId: CLIENT_ID
 });
 
 
