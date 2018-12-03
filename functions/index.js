@@ -42,6 +42,9 @@ const TraktAgent = dialogflow({
     debug: true,
 });
 
+
+
+
 //________________________________________________________\\
 const util = {};//Todo : move to util.js
 /**
@@ -56,9 +59,17 @@ util.getRandomResponse = function (ResponsesArray) {
 };
 
 //________________________________________________________\\
-const traktApi = {};//Todo : move to traktApi.js
+const traktApi = {};
+
+//Todo : move to traktApi.js
 //Todo : Examine if request-promise-native would be better for Node.js v8.
 const rp = require("request-promise");
+
+/**
+ * Launch the API request to obtain the user's settings.
+ * https://trakt.docs.apiary.io/reference/users/settings
+ * @param token auth Access token
+ */
 
 traktApi.getUserSettings = function (token) {
     let settingsOptions = {
@@ -78,10 +89,11 @@ traktApi.getUserSettings = function (token) {
 /**
  *
  * @param token auth Access token
- * @param textQuery Request to search
- * @param types media_type : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
+ * @param textQuery : string Text query to search for
+ * @param types=["show","movie"] : string[] : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
+ * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
  */
-traktApi.search = function (token, textQuery, types = ["show,movie"]) {
+traktApi.getSearchResults = function (token, textQuery, types = ["show", "movie"]) {
 
     let searchOptions = {
         method: 'GET',
@@ -107,6 +119,30 @@ traktApi.search = function (token, textQuery, types = ["show,movie"]) {
             return false;
         });*/
 };
+
+traktApi.deleteCheckins = function (token) {
+    let requestOptions = {
+        method: 'DELETE',
+        uri: `${TraktAPIEndpoint}/checkin`,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'trakt-api-version': '2',
+            'trakt-api-key': `${CLIENT_ID}`
+        }, json: true,
+        resolveWithFullResponse: true
+    };
+    return rp(requestOptions);
+};
+
+//Todo : Correctly handle errors.
+function requestErrorHandler(conv, err) {
+    console.log(err);
+    conv.ask(`oh crap, I got a ${err.statusCode} network error trying to communicate with Trakt. Todo : Close the conversation or get it back on track`);
+    //Todo : Remove this message ofc XD. Allows user to retry request, maybe ?
+    return false;
+    // API call failed...
+}
 
 //________________________________________________________\\
 
@@ -151,8 +187,6 @@ function signInHandler(conv, params, signin) {
 
         return traktApi.getUserSettings(conv.user.access.token)
             .then(response => {
-                //Todo : Get timezone and format from trakt api and SAVE it in conv. Same for user name etc ?
-
                 // Todo : This allows to avoid sending back the whole userStorage in turns where its content didn't change.
                 // See https://developers.google.com/actions/assistant/save-data#clear_content_of_the_userstorage_field
                 //conv.user.storage = {};
@@ -163,28 +197,28 @@ function signInHandler(conv, params, signin) {
                     timezone: response.body.account.timezone,
                     date_format: response.body.account.date_format,
                     time_24hr: response.body.account.time_24hr,
-                };
+                };//Todo : Use timezone and format.
                 if (!conv.user.storage.name) {
-                    conv.user.storage.name = response.body.user.name.split(" ")[0];// Todo : intent to change the user's name
+                    conv.user.storage.name = response.body.user.name.split(" ")[0];// Todo : intent to change the user name. There are prebuilt ones on DialogFlow
                 }
                 //Should I refresh these settings sometimes ?
                 conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to check in for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
                 conv.ask(`Don't hesitate to ask me for help if you can't handle all these possibilities ! Anything I can do for you right now ?`);
-                conv.ask(new Suggestions("Call me <Master>", "I'm watching the last Batman movie", "What do I have next to watch ?", "What can you do ?"));
+                conv.ask(new Suggestions("What can you do ?", "Call me Master", "I'm watching Batman", "What's next to watch ?"));
                 //Todo change these suggestions.
                 return true;
             })
-            .catch(err => {
-                console.log('Its a Status error:', err.statusCode);
-                conv.ask(`oh crap, I got a ${err.statusCode} network error trying to communicate with Trakt. Todo : Close the conversation or get it back on track`);
-                //Todo : Remove this message ofc XD.
-                return false;
-                // API call failed...
-            });
+            .catch((conv, err) => requestErrorHandler(conv, err));
     }
 
 }
 
+
+//Todo : Manage checkin error when starting a new checkin
+// "If a checkin is already in progress, a 409 HTTP status code will returned. The response will contain an expires_at timestamp which is when the user can check in again."
+
+//Todo : Note, As per https://trakt.tv/branding
+// Checkin seems to be mobile-oriented while Scrobble is meant to be seamless to the user, being attached to play pause stop events etc, in a media player.
 
 //___________________________________________________\\
 
@@ -209,17 +243,16 @@ TraktAgent.intent('Default Welcome Intent', (conv) => {
             "Good day! What can I do for you today?",
             "Greetings! How can I assist?"]);//Todo : Watch out, the "smiley face" is read aloud.
         conv.ask(responseMessage);
-        conv.ask(new Suggestions("What can you do ?", "Check in to $popular_movie", "Add $popular_movie to my watchlist", "I've seen the last $popular_movie", "What's next for me to watch ?"))
+        conv.ask(new Suggestions("What can you do ?", "Check in to $popular", "Add $pop to my watchlist", "I've seen $popular_movie", "What's next to watch ?"))
         //Todo : change these messages and add suggestions.
     }
-})
-;
+});
 
 /**
  * This intents matches the `actions_intent_CONFIRMATION` event and DefaultWelcomeIntent-followup that were set in the Default Welcome Intent,
  * after a confirmation prompt that was presented to the user if he wasn't signed in.
  */
-TraktAgent.intent('Default Welcome Intent - SignIn_Confirmation', (conv, input, confirmation) => {
+TraktAgent.intent('Default Welcome Intent - SignIn_Confirmation', (conv, params, confirmation) => {
     //Delete the followup context since it isn't needed anymore to keep the user "on tracks".
     //We'll either redirect him to the "sign in failed -> close conversation" path, or sign him in and he'll be then free to do what he wants
     conv.contexts.delete('DefaultWelcomeIntent-followup');
@@ -237,14 +270,38 @@ TraktAgent.intent('Signin Request', (conv) => signInLauncher(conv));
 // The intent is linked to the `actions_intent_SIGN_IN` event, and thus starts when a sign in request is made, and is either refused or accepted
 TraktAgent.intent('Signin Action', (conv, params, signin) => signInHandler(conv, params, signin));
 
-//Todo : Get help intent - on DialogFlow since it wouldn't require API Calls ? Or IDK, since Google<->Google is free ?
-//Todo : Check firebase's invocations quota.
-//conv.ask(`You can manage your watchlist, history, or even checkin`);//Todo : add more detail and put this in a "get help" intent
-//conv.ask(`Anything I might help you more about ?`);
+//Todo : Handle the "start" case in another intent and function ?
+//Todo : Add checkin launch with media data
+//If the intent "Checkin_Edit is matched, we send the conversation data
+TraktAgent.intent('Checkin Stop', (conv) => {
+    conv.ask(new Confirmation(`Okay. Are you sure to stop the checkin right now ?`));
+//Todo : Sets the followup intent to have the confirmation as an event.
+});
+
+//Todo : warning, if the checkin was stopped because it was needed to check in something else
+// We'll need to answer differently and provide the user with the checkin he initially asked for.
+TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) => {
+    if (!confirmation) {
+        conv.ask(`Fine, won't do. How else may I be of assistance ?`);
+        return false;
+    } else {
+        return traktApi.deleteCheckins(conv.user.access.token)
+            .then(response => {
+                conv.ask(`The checkin was successfully stopped`);
+                conv.ask(`Anything else I can do to assist ?`);
+                return true;
+            })
+            .catch((err) => requestErrorHandler(conv, err));
+    }
+});
 
 
-//Todo : Add all text dialogs in separated strings
+// Todo : Fill help intent text on dialogflow
+
+
+//Todo : Review ALL text dialogs and suggestions, and add them to separated strings
 //Todo : Set conversations as end when needed
+
 //Todo : Firebase free invocation quota is around 1 million, huh. Optimize this someday to reduce the number of calls to the webhook, I guess ?
 //Todo : Get the popular movies once in a while to "cache" them in some.. storage somewhere ?
 
