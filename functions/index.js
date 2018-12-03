@@ -43,8 +43,8 @@ const TraktAgent = dialogflow({
     debug: true,
 });
 
-
-const util = {};
+//________________________________________________________\\
+const util = {};//Todo : move to util.js
 /**
  *Returns a random response from an array.
  * @param ResponsesArray {Response[]|string[]} Array of responses
@@ -54,8 +54,62 @@ util.getRandomResponse = function (ResponsesArray) {
     //A random integer index between 0 and the array length (excluded, since arrays start at 0.)
     let randomIndex = Math.floor(Math.random() * ResponsesArray.length);//Math.random c [0,1[.
     return ResponsesArray[randomIndex];
-};//Todo : move to util.js
+};
 
+//________________________________________________________\\
+const traktApi = {};//Todo : move to traktApi.js
+//Todo : Examine if request-promise-native would be better for Node.js v8.
+const rp = require("request-promise");
+
+traktApi.getUserSettings = function (token) {
+    let settingsOptions = {
+        method: 'GET',
+        uri: `${TraktAPIEndpoint}/users/settings`,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'trakt-api-version': '2',
+            'trakt-api-key': `${CLIENT_ID}`
+        }, json: true,
+        resolveWithFullResponse: true
+    };
+    return rp(settingsOptions);
+};
+
+/**
+ *
+ * @param token auth Access token
+ * @param textQuery Request to search
+ * @param types media_type : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
+ */
+traktApi.search = function (token, textQuery, types = ["show,movie"]) {
+
+    let searchOptions = {
+        method: 'GET',
+        uri: `${TraktAPIEndpoint}/search/${types}?query=${encodeURIComponent(textQuery)}`, //-> search/type1,type2,type3?..
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'trakt-api-version': '2',
+            'trakt-api-key': `${CLIENT_ID}`
+        }, json: true,
+        resolveWithFullResponse: true
+    };
+    return rp(searchOptions);
+
+    /*    return traktApi.search(conv.user.access.token, "Who")
+        .then(response => {
+            console.log(response.headers);
+            console.log(response.body);
+            return true;
+        })
+        .catch(err => {
+            console.log(err);
+            return false;
+        });*/
+};
+
+//________________________________________________________\\
 
 //Todo : DialogFlow : Handle the case when user explicitly ask to refresh his information.
 //Todo : In this case, tell him how to unlink account maybe ?
@@ -96,26 +150,10 @@ function SignInHandler(conv, params, signin) {
         //return; TODO : Examine ESLint rules about that
     } else {
         //const accesstoken = conv.user.access.token;
-        //TODO : Separate any API call function.
-        //TOdo : Examine if request-promise-native would be better.
-        const rp = require("request-promise");
-        let options = {
-            method: 'GET',
-            uri: `${TraktAPIEndpoint}/users/settings`,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${conv.user.access.token}`,
-                'trakt-api-version': '2',
-                'trakt-api-key': `${CLIENT_ID}`
-            }, json: true,
-            resolveWithFullResponse: true
-        };
 
-        return rp(options)
+        return traktApi.getUserSettings(conv.user.access.token)
             .then(response => {
                 //Todo : Get timezone and format from trakt api and SAVE it in conv. Same for user name etc ?
-                console.log('Its a me Status:', response.statusCode);
-                console.log('Its a me Headers:', JSON.stringify(response.headers));
 
                 // Todo : This allows to avoid sending back the whole userStorage in turns where its content didn't change.
                 // See https://developers.google.com/actions/assistant/save-data#clear_content_of_the_userstorage_field
