@@ -8,7 +8,6 @@ const {
     SignIn,
     SimpleResponse,
     Confirmation,
-    Permission,
     Suggestions,
     BasicCard,
 } = require('actions-on-google');
@@ -113,12 +112,11 @@ traktApi.search = function (token, textQuery, types = ["show,movie"]) {
 
 //Todo : DialogFlow : Handle the case when user explicitly ask to refresh his information.
 //Todo : In this case, tell him how to unlink account maybe ?
-
 /**
- * This launches the account linking request with the SignIn helper.
+ * Launch the account linking request with the SignIn helper.
  * @param conv Conversation Object
  */
-function SignInLauncher(conv) {
+function signInLauncher(conv) {
     {
         conv.ask("You'll have to authorize this application from your Trakt account so that you can interact with your lists from here.");
         conv.ask(new SignIn('To let you manage your Trakt account'));
@@ -127,13 +125,13 @@ function SignInLauncher(conv) {
 }
 
 /**
- * Handle the status of the user sign in, after a response from the SignIn helper.
+ * Handle the status of the user's sign in, after a response from the SignIn helper.
  * @param conv Conversation object
  * @param params
  * @param signin signin.status=='OK' when the sign in was successfully completed.
- * @returns {Promise<T | boolean>} Promise that returns when the user's Trakt data has been fetched. //Todo : What data to fetch at this moment ? List Sync ?
+ * @returns {Promise<T | boolean> | boolean} Promise that returns when the user's Trakt data has been fetched. //Todo : What data to fetch at this moment ? List Sync ?
  */
-function SignInHandler(conv, params, signin) {
+function signInHandler(conv, params, signin) {
     if (signin.status !== 'OK') {
         conv.close(`Without the authorization to do so on your Trakt account, I won't be able to update your lists or do anything for you.`);
 
@@ -147,7 +145,7 @@ function SignInHandler(conv, params, signin) {
                 'I only do what you ask, and have no secret need to fill your account with my own favorite shows 😉.'
         });
         conv.close(NoSignInMessage2);
-        //return; TODO : Examine ESLint rules about that
+        return false;
     } else {
         //const accesstoken = conv.user.access.token;
 
@@ -165,16 +163,15 @@ function SignInHandler(conv, params, signin) {
                     timezone: response.body.account.timezone,
                     date_format: response.body.account.date_format,
                     time_24hr: response.body.account.time_24hr,
-                    name: response.body.user.name.split(" ")[0],
                 };
-                //Should I refresh these settings sometimes?
-
-                //What should I do with the name
-
-                conv.ask(`Now that I have your authorization, ${conv.user.storage.TraktUserSettings.name}, I'll be able to check in for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
+                if (!conv.user.storage.name) {
+                    conv.user.storage.name = response.body.user.name.split(" ")[0];// Todo : intent to change the user's name
+                }
+                //Should I refresh these settings sometimes ?
+                conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to check in for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
                 conv.ask(`Don't hesitate to ask me for help if you can't handle all these possibilities ! Anything I can do for you right now ?`);
-                //Todo : Show suggestions : Call me <Master>, I'm watching the last Batman movie, What do I have next to watch ?, Get_Help
-
+                conv.ask(new Suggestions("Call me <Master>", "I'm watching the last Batman movie", "What do I have next to watch ?", "What can you do ?"));
+                //Todo change these suggestions.
                 return true;
             })
             .catch(err => {
@@ -195,14 +192,14 @@ function SignInHandler(conv, params, signin) {
 TraktAgent.intent('Default Welcome Intent', (conv) => {
     if (!conv.user.access.token) {
         //The user isn't correctly signed in since we weren't provided with an access token for the user, so we'll briefly walk him through the app and ask him to sign in. Todo : Traktie is a temp name.
-        let Introduction = `Hi there ! I'm Traktie, pleased to meet you. I can do a lot to help you manage your Trakt lists.\n` +//Todo Emphasize a lot
+        let introduction = `Hi there ! I'm Traktie, pleased to meet you. I can do a lot to help you manage your Trakt lists.\n` +//Todo Emphasize "a lot"
             `If you just watched something, or if you're in a rush to check in a movie, I can do all that for you, and more !\n` +
             `But firstly, you'll have to authorize me to checkin for you, and update your list on your behalf. Is it ok ?`;
 
 
         //This sets the context to be a followup of DefaultWelcomeIntent before asking for User confirmation, as the intent handling the confirmation has to be matched only after this specific conversation.
-        conv.contexts.set('DefaultWelcomeIntent-followup', 5);
-        conv.ask(new Confirmation(Introduction));//Todo : This is not even a prompt, huh. Change it.
+        conv.contexts.set('DefaultWelcomeIntent-followup', 4);
+        conv.ask(new Confirmation(introduction));//Todo : This is not even a prompt, huh. Change it.
     } else {//Google sent us an access token for the user, so his account his correctly linked.
 
         let responseMessage = util.getRandomResponse(["Oh hai ! What can I do for you :) ?",
@@ -227,18 +224,18 @@ TraktAgent.intent('Default Welcome Intent - SignIn_Confirmation', (conv, input, 
     //We'll either redirect him to the "sign in failed -> close conversation" path, or sign him in and he'll be then free to do what he wants
     conv.contexts.delete('DefaultWelcomeIntent-followup');
     if (confirmation) {
-        SignInLauncher(conv);
+        signInLauncher(conv);
         return true;
     } else {
-        return SignInHandler(conv, {}, 'NotRequested');
+        return signInHandler(conv, {}, 'NotRequested');
     }
 });
 
 // Intent that starts the account linking flow.
-TraktAgent.intent('Signin Request', (conv) => SignInLauncher(conv));
+TraktAgent.intent('Signin Request', (conv) => signInLauncher(conv));
 
 // The intent is linked to the `actions_intent_SIGN_IN` event, and thus starts when a sign in request is made, and is either refused or accepted
-TraktAgent.intent('Signin Action', (conv, params, signin) => SignInHandler(conv, params, signin));
+TraktAgent.intent('Signin Action', (conv, params, signin) => signInHandler(conv, params, signin));
 
 //Todo : Get help intent - on DialogFlow since it wouldn't require API Calls ? Or IDK, since Google<->Google is free ?
 //Todo : Check firebase's invocations quota.
@@ -247,12 +244,13 @@ TraktAgent.intent('Signin Action', (conv, params, signin) => SignInHandler(conv,
 
 
 //Todo : Add all text dialogs in separated strings
-//Todo Set conversations as end when needed
-
+//Todo : Set conversations as end when needed
+//Todo : Firebase free invocation quota is around 1 million, huh. Optimize this someday to reduce the number of calls to the webhook, I guess ?
+//Todo : Get the popular movies once in a while to "cache" them in some.. storage somewhere ?
 
 //__________________________________________________________________\\
 //Todo : Update Actions Console on Google directory info before deploying any Prod/Beta/Alpha to the public.
-//It is filled with FAKE data.
+//It is filled with FAKE data right now.
 
 /**
  * Set the DialogflowApp object to handle the HTTPS POST request.
