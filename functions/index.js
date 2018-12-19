@@ -44,8 +44,6 @@ const TraktAgent = dialogflow({
 });
 
 
-
-
 //________________________________________________________\\
 const util = {};//Todo : move to util.js
 /**
@@ -293,6 +291,28 @@ TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) =>
                 return true;
             })
             .catch((err) => requestErrorHandler(conv, err));
+    }
+});
+
+
+TraktAgent.intent('Checkin Start', (conv, params) => {
+
+    //Debugging
+    //Todo : add this context to dialogflow intent
+    const dataAdditionContext = conv.contexts.get(AppContexts.DATA_ADDITION);
+    //Todo : Understand how to get contexts
+    console.log(dataAdditionContext);
+    //End debugging
+
+    const {media_item_name, media_type, episode_number, season_number} = dataAdditionContext.parameters;
+    //Mark this parameter as not required in DF if we want to be able to access the data collection intents ourselves.
+    if (!media_item_name) {
+        //Maybe set contexts for the data collec intent ? / Or no context to keep it with the usual "change item" intent
+        conv.ask("Please provide the show/movie name")
+    } else {
+        //Todo : Find corresponding media
+
+        conv.ask(`Confirm checkin of ${media_item_name} ?`);//Todo mention episodes when needed through a message constructor.
     }
 });
 
