@@ -26,6 +26,7 @@ const TraktAPIEndpoint = functions.config().traktclient.endpoint;
 const AppContexts = {
         LIST_ADDITION: 'ListAdditionData',
         CHECKIN_ADDITION: 'CheckinAdditionData',
+        DATA_ADDITION: 'AdditionData'
     };
 
 /** Dialogflow Context Lifespans {@link https://dialogflow.com/docs/contexts#lifespan} */
@@ -275,11 +276,11 @@ TraktAgent.intent('Signin Action', (conv, params, signin) => signInHandler(conv,
 //If the intent "Checkin_Edit is matched, we send the conversation data
 TraktAgent.intent('Checkin Stop', (conv) => {
     conv.ask(new Confirmation(`Okay. Are you sure to stop the checkin right now ?`));
-//Todo : Sets the followup intent to have the confirmation as an event.
+    // On DialogFlow, the followup intent managing the confirmation then has to have 'actions_intent_CONFIRMATION' as a trigger event, to handle the answer.
 });
 
 //Todo : warning, if the checkin was stopped because it was needed to check in something else
-// We'll need to answer differently and provide the user with the checkin he initially asked for.
+// We'll have to answer differently and provide the user with the checkin he initially asked for.
 TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) => {
     if (!confirmation) {
         conv.ask(`Fine, won't do. How else may I be of assistance ?`);
