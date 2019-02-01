@@ -87,6 +87,7 @@ traktApi.getUserSettings = function (token) {
     return rp(settingsOptions);
 };
 
+//Todo test
 /**
  *
  * @param token auth Access token
@@ -147,7 +148,7 @@ function requestErrorHandler(conv, err) {
 
 //________________________________________________________\\
 
-//Todo : DialogFlow : Handle the case when user explicitly ask to refresh his information.
+//Todo : DialogFlow : Handle the case when user explicitly ask to refresh his information. or not since he can unlink through G.Assistant
 //Todo : In this case, tell him how to unlink account maybe ?
 /**
  * Launch the account linking request with the SignIn helper.
@@ -225,9 +226,9 @@ function signInHandler(conv, params, signin) {
 
 
 TraktAgent.intent('Default Welcome Intent', (conv) => {
-    if (!conv.user.access.token) {
-        //The user isn't correctly signed in since we weren't provided with an access token for the user, so we'll briefly walk him through the app and ask him to sign in. Todo : Traktie is a temp name.
-        let introduction = `Hi there ! I'm Traktie, pleased to meet you. I can do a lot to help you manage your Trakt lists.\n` +//Todo Emphasize "a lot"
+    if (!conv.user.access.token) {//The user isn't correctly signed in since we weren't provided with an access token for the user
+        //so we'll briefly walk him through the app and ask him to sign in. Todo : Traktie is a temp name.
+        let introduction = `Hi there ! I'm Traktie, pleased to meet you. I can do a lot to help you manage your Trakt lists.\n` +//Todo Emphasize "a lot" with SSML
             `If you just watched something, or if you're in a rush to check in a movie, I can do all that for you, and more !\n` +
             `But firstly, you'll have to authorize me to checkin for you, and update your list on your behalf. Is it ok ?`;
 
@@ -237,6 +238,7 @@ TraktAgent.intent('Default Welcome Intent', (conv) => {
         conv.ask(new Confirmation(introduction));//Todo : This is not even a prompt, huh. Change it.
     } else {//Google sent us an access token for the user, so his account his correctly linked.
 
+        //Welcome him
         let responseMessage = util.getRandomResponse(["Oh hai ! What can I do for you :) ?",
             "Holà, how can I help you ?",
             "It's you ! What do you want me to do ?",
@@ -286,8 +288,9 @@ TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) =>
         conv.ask(`Fine, won't do. How else may I be of assistance ?`);
         return false;
     } else {
-        return traktApi.deleteCheckins(conv.user.access.token)
+        return traktApi.deleteCheckins(conv.user.access.token)                //Todo check response for errors
             .then(response => {
+
                 conv.ask(`The checkin was successfully stopped`);
                 conv.ask(`Anything else I can do to assist ?`);
                 return true;
