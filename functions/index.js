@@ -28,7 +28,8 @@ const TraktAPIEndpoint = functions.config().traktclient.endpoint;
 const AppContexts = {
         LIST_ADDITION: 'listadditiondata',
         CHECKIN_ADDITION: 'checkinadditiondata',
-        DATA_ADDITION: 'additiondata'
+        DATA_ADDITION: 'additiondata',
+        SEARCH_DETAILS: 'searchdetails'
     };
 //Note : Contexts names are converted to lowercase by DialogFlow
 
@@ -96,7 +97,9 @@ traktApi.getUserSettings = function (token) {
  * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
  */
 traktApi.getSearchResults = function (token, textQuery, types = ["show", "movie"]) {
-
+    if (types === "") {
+        types = ["show", "movie"];
+    }
     let searchOptions = {
         method: 'GET',
         uri: `${TraktAPIEndpoint}/search/${types}?query=${encodeURIComponent(textQuery)}`, //-> search/type1,type2,type3?..
@@ -312,9 +315,12 @@ TraktAgent.intent('Checkin Start', (conv, params) => {
         conv.ask("Please provide the show/movie name");
         //Todo create a followup intent to handle this case
     } else {
-        conv.followup('SearchDetails', {query: media_item_name, media_type: media_type});
-//Todo SearchDetails intent must go back to Checkin confirmation when finished.
+        conv.followup('SearchDetails', {
+            query: media_item_name,
+            media_type: media_type
+        });
 
+        //Todo SearchDetails intent must go back to Checkin confirmation when finished.
         //conv.ask(new Confirmation(`Confirm checkin of ${media_item_name} ?`));//Todo mention episodes when needed through a message constructor.
     }
 });
@@ -337,16 +343,19 @@ TraktAgent.intent('Checkin Start - Confirmation', (conv, params, confirmation) =
 
 
 TraktAgent.intent('SearchDetails', (conv, params) => {
-    conv.ask("This is search.");
-    //Todo Check parameters
 
-    return traktApi.getSearchResults(conv.access.token, params.query, params.media_type)
+    const search_data = conv.contexts.input[AppContexts.SEARCH_DETAILS].parameters;
+    //Todo store the search results somewhere in the context
+
+    return traktApi.getSearchResults(conv.user.access.token, search_data.query, search_data.media_type)
         .then(response => {
-                console.log(response);
-                //todo say or display media info, or build carousel/list if multiple results https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js useful sample
+            console.log(response.body);
+            //Todo process body
 
+                //todo say or display media info, or build carousel/list if multiple results https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js useful sample
+            conv.ask("debug breakpt");
                 //todo : If only one pertinent choice, followup directly with it
-                conv.followup('SearchDetails - Choice', {choice});
+            //conv.followup('SearchDetails - Choice', {choice});
                 return true;
             }
         );
@@ -385,6 +394,7 @@ function displaychoice(conv, choice) {
         }),
         display: 'WHITE',
     }));
+    return;
 
 }
 
