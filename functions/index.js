@@ -319,6 +319,78 @@ TraktAgent.intent('Checkin Start', (conv, params) => {
     }
 });
 
+TraktAgent.intent('Checkin Start - Confirmation', (conv, params, confirmation) => {
+//Todo : redo this so it can followup after the search choice confirmation
+    if (!confirmation) {
+        conv.ask(`Fine, won't do. How else may I be of assistance ?`);
+        return false;
+    } else {
+//todo start checkin
+
+
+        conv.ask(`The checkin was successfully started`);
+        //Todo : delete addition data (& other) contexts on DF or here on success
+        conv.ask(`Anything else I can do to assist ?`);
+        return true;
+    }
+});
+
+
+TraktAgent.intent('SearchDetails', (conv, params) => {
+    conv.ask("This is search.");
+    //Todo Check parameters
+
+    return traktApi.getSearchResults(conv.access.token, params.query, params.media_type)
+        .then(response => {
+                console.log(response);
+                //todo say or display media info, or build carousel/list if multiple results https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js useful sample
+
+                //todo : If only one pertinent choice, followup directly with it
+                conv.followup('SearchDetails - Choice', {choice});
+                return true;
+            }
+        );
+
+
+});
+
+//Todo and rename
+function displaychoice(conv, choice) {
+
+//Todo Check parameters
+//todo
+
+    if (!conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
+        conv.ask('Sorry, try this on a screen device or select the ' +
+            'phone surface in the simulator.');
+        //todo say the first result or something
+    }
+// Create a basic card
+    //Todo include dynamic info from search (should be in the choice var)
+    conv.ask("Sure, here are the details of *title*, is it ok ?");//Todo replace title, add action type
+    conv.ask(new BasicCard({
+        text: `📱.  *emphasis* or _italics_, **strong** or
+  __bold__, and ***bold itallic*** or ___strong emphasis___ as well as other
+  things like line  \nbreaks`, // Note the two spaces before '\n' required for
+                               // a line break to be rendered in the card.
+        subtitle: 'This is a subtitle',
+        title: 'Title: this is a title',
+        buttons: new Button({
+            title: 'Trakt page',
+            url: 'https://trakt.tv/',
+        }),
+        image: new Image({
+            url: 'https://image.tmdb.org/t/p/w600_and_h900_bestv2/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg',//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
+            alt: 'Batman logo from tmdb',
+        }),
+        display: 'WHITE',
+    }));
+
+}
+
+TraktAgent.intent('SearchDetails - Choice', (conv, {choice}) => {
+    displaychoice(conv, choice)
+});
 
 // Todo : Fill help intent text on dialogflow
 
