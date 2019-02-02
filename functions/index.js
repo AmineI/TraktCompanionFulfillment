@@ -10,6 +10,8 @@ const {
     Confirmation,
     Suggestions,
     BasicCard,
+    Button,
+    Image
 } = require('actions-on-google');
 // Import the firebase-functions package for deployment.
 const functions = require('firebase-functions');
@@ -24,10 +26,11 @@ const TraktAPIEndpoint = functions.config().traktclient.endpoint;
 /** Dialogflow Contexts {@link https://dialogflow.com/docs/contexts/input-output-contexts} */
     //Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
 const AppContexts = {
-        LIST_ADDITION: 'ListAdditionData',
-        CHECKIN_ADDITION: 'CheckinAdditionData',
-        DATA_ADDITION: 'AdditionData'
+        LIST_ADDITION: 'listadditiondata',
+        CHECKIN_ADDITION: 'checkinadditiondata',
+        DATA_ADDITION: 'additiondata'
     };
+//Note : Contexts names are converted to lowercase by DialogFlow
 
 /** Dialogflow Context Lifespans {@link https://dialogflow.com/docs/contexts#lifespan} */
 const Lifespans = {
@@ -294,25 +297,25 @@ TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) =>
     }
 });
 
-
+//Todo : remove other actions contexts when starting an action. Ex : starting the add_watchlist should remove checkin_context
 TraktAgent.intent('Checkin Start', (conv, params) => {
 
-    //Debugging
-    //Todo : add this context to dialogflow intent
-    const dataAdditionContext = conv.contexts.get(AppContexts.DATA_ADDITION);
-    //Todo : Understand how to get contexts
-    console.log(dataAdditionContext);
-    //End debugging
+    //Todo : add the DATA_ADDITION to dialogflow intent
+    //Todo : set contexts lifespan to super high on DF so that we don't forget the point if we take a lot of time in the search intent.
+    const {media_item_name, media_type, episode_number, season_number} = conv.contexts.input[AppContexts.DATA_ADDITION].parameters;
+    //Todo : Mark some parameters as not required in DF if we want to be able to access the data collection intents ourselves for slot filling
 
-    const {media_item_name, media_type, episode_number, season_number} = dataAdditionContext.parameters;
-    //Mark this parameter as not required in DF if we want to be able to access the data collection intents ourselves.
+    //Todo : If episode/season not given we assume it"s a movie
+    //Todo handle if the asks for the last episode or the newest
     if (!media_item_name) {
         //Maybe set contexts for the data collec intent ? / Or no context to keep it with the usual "change item" intent
-        conv.ask("Please provide the show/movie name")
+        conv.ask("Please provide the show/movie name");
+        //Todo create a followup intent to handle this case
     } else {
-        //Todo : Find corresponding media
+        conv.followup('SearchDetails', {query: media_item_name, media_type: media_type});
+//Todo SearchDetails intent must go back to Checkin confirmation when finished.
 
-        conv.ask(`Confirm checkin of ${media_item_name} ?`);//Todo mention episodes when needed through a message constructor.
+        //conv.ask(new Confirmation(`Confirm checkin of ${media_item_name} ?`));//Todo mention episodes when needed through a message constructor.
     }
 });
 
