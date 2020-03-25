@@ -155,11 +155,9 @@ function requestErrorHandler(conv, err) {
  * @param conv Conversation Object
  */
 function signInLauncher(conv) {
-    {
-        conv.ask("You'll have to authorize this application from your Trakt account so that you can interact with your lists from here.");
-        conv.ask(new SignIn('To let you manage your Trakt account'));
-        //Prompt the user to sign in, and then fire the `actions_intent_SIGN_IN` event, which starts any matching intent with that event as input.
-    }
+    conv.ask("You'll have to authorize this application from your Trakt account so that you can interact with your lists from here.");
+    conv.ask(new SignIn('To let you manage your Trakt account'));
+    //Prompt the user to sign in, and then fire the `actions_intent_SIGN_IN` event, which starts any matching intent with that event as input.
 }
 
 /**
