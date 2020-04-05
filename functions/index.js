@@ -23,6 +23,7 @@ const functions = require('firebase-functions');
 const CLIENT_ID = functions.config().traktclient.id;
 //>firebase functions:config:set traktclient.endpoint="https://api-staging.trakt.tv"
 const TraktAPIEndpoint = functions.config().traktclient.endpoint;
+const util = require("./util");
 
 // Create a Dialogflow client instance.
 const TraktAgent = dialogflow({
@@ -57,20 +58,6 @@ const TraktAgent = dialogflow({
     //Debug mode logs the raw JSON payload from the user request or response
     debug: true,
 });
-
-
-//________________________________________________________\\
-const util = {};//Todo : move to util.js
-/**
- *Returns a random response from an array.
- * @param ResponsesArray {Response[]|string[]} Array of responses
- * @returns {Response|string}
- */
-util.getRandomResponse = function (ResponsesArray) {
-    //A random integer index between 0 and the array length (excluded, since arrays start at 0.)
-    let randomIndex = Math.floor(Math.random() * ResponsesArray.length);//Math.random c [0,1[.
-    return ResponsesArray[randomIndex];
-};
 
 //________________________________________________________\\
 const traktApi = {};
@@ -208,15 +195,6 @@ tmdb.getImageUrl = (mediaType, TMDBId) => {
 };
 
 //Todo : Correctly handle errors.
-function requestErrorHandler(conv, err) {
-    console.log(err);
-    conv.ask(`oh crap, I got a ${err.statusCode} network error trying to communicate with Trakt. Todo : Close the conversation or get it back on track`);
-    //Todo : Remove this message ofc XD. Allows user to retry request, maybe ?
-    return false;
-    // API call failed...
-}
-
-//________________________________________________________\\
 
 //Todo : DialogFlow : Handle the case when user explicitly ask to refresh his information. or not since he can unlink through G.Assistant
 //Todo : In this case, tell him how to unlink account maybe ?
@@ -278,7 +256,7 @@ function signInHandler(conv, params, signin) {
                 //Todo change these suggestions.
                 return true;
             })
-            .catch((conv, err) => requestErrorHandler(conv, err));
+            .catch((conv, err) => util.requestErrorHandler(conv, err));
     }
 
 }
@@ -363,7 +341,7 @@ TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) =>
                 conv.ask(`Anything else I can do to assist ?`);
                 return true;
             })
-            .catch((err) => requestErrorHandler(conv, err));
+            .catch((err) => util.requestErrorHandler(conv, err));
     }
 });
 
