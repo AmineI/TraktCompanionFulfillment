@@ -34,7 +34,7 @@ class TraktApi {
         } catch (err) {
             console.error(err.response.status);
             console.error(err.config);
-            throw this.TraktCallErrorMessage;
+            throw TraktCallErrorMessage;
         }
     };
 
@@ -67,7 +67,7 @@ class TraktApi {
         } catch (err) {
             console.error(err.response.status);
             console.error(err.config);
-            throw this.TraktCallErrorMessage;
+            throw TraktCallErrorMessage;
         }
     };
 
@@ -94,7 +94,7 @@ class TraktApi {
         } catch (err) {
             console.error(err.response.status);
             console.error(err.config);
-            throw this.TraktCallErrorMessage;
+            throw TraktCallErrorMessage;
         }
     };
 
@@ -110,7 +110,7 @@ class TraktApi {
         } catch (err) {
             console.error(err.response.status);
             console.error(err.config);
-            throw this.TraktCallErrorMessage;
+            throw {status: err.response.status, message: TraktCallErrorMessage};
         }
         //Todo : Manage checkin error when starting a new checkin 401 when something is missing I think
         // "If a checkin is already in progress, a 409 HTTP status code will returned. The response will contain an expires_at timestamp which is when the user can check in again."
@@ -130,7 +130,7 @@ class TraktApi {
         } catch (err) {
             console.error(err.response.status);
             console.error(err.config);
-            throw this.TraktCallErrorMessage;
+            throw TraktCallErrorMessage;
         }
     };
 
