@@ -106,7 +106,7 @@ class TraktApi {
                 data: item,
                 headers: {'Authorization': `Bearer ${token}`}
             });
-            return res.data;
+            return (res.status === 201);
         } catch (err) {
             console.error(err.response.status);
             console.error(err.config);
@@ -126,11 +126,11 @@ class TraktApi {
                 url: `/checkin`,
                 headers: {'Authorization': `Bearer ${token}`}
             });
-            return res.data;
+            return (res.status === 204);
         } catch (err) {
             console.error(err.response.status);
             console.error(err.config);
-            throw TraktCallErrorMessage;
+            return false;
         }
     };
 
