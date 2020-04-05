@@ -397,12 +397,12 @@ TraktAgent.intent('Checkin Start - Confirmation', (conv, params) => {
         confirmedItemString += ` season ${confirmedItem.season} episode ${confirmedItem.number}`
     }
     return traktApi.CheckinItem(conv.user.access.token, {[type]: confirmedItem[type]})
-        .then(response => {console.log(response.statusCode);
-            conv.ask(`Check in ${confirmedItemString} confirmed ! Have a nice watch ! `);
-        //Todo : delete addition data (& other) contexts on DF or here on success
-        conv.ask(`Anything else I can do to assist ?`);
-        return true;
-    }
+        .then(response => {
+                console.log(response.statusCode);
+                conv.ask(`Check in ${confirmedItemString} confirmed ! Have a nice watch ! `);
+                //Todo : delete additional data (& other) contexts on DF or here on success to "go back" to the beginning, or even exit to let the user watch
+                return true;
+            }
         ).catch(err => {
             console.error(err);
             //Todo handle different types of failure
