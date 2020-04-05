@@ -20,6 +20,10 @@ to make an chatbot available through talking with the Google Assistant and the v
 It seemed to be quite a good match for starting this project, starting with the "Check-in" functionality, 
 and before eventually extending it to more platforms and features.
 
+###Usage
+
+###Deployment & Hosting
+
 
 ####Prerequisites
 0. Create a Firebase project in the [Firebase console](https://firebase.google.com/console). 
