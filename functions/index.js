@@ -17,20 +17,19 @@ const {
 // Import the firebase-functions package for deployment.
 const functions = require('firebase-functions');
 
-//Gets the client ID from firebase's environment config.
-//Can be set through firebase CLI : >firebase functions:config:set traktclient.id="MyTraktAPIAppClientId"
+//Gets the client configs from firebase's environment config.
+//Can be set through firebase CLI : >firebase functions:config:set traktclient.id="MyTraktAPIAppClientId" , traktclient.endpoint="https://api-staging.trakt.tv"
 //Todo : Change the Staging Client ID & endpoint to the official client ID in firebase configuration.
-const CLIENT_ID = functions.config().traktclient.id;
-//>firebase functions:config:set traktclient.endpoint="https://api-staging.trakt.tv"
-const TraktAPIEndpoint = functions.config().traktclient.endpoint;
+const {id: TraktClientId, endpoint: TraktAPIEndpoint} = functions.config().traktclient;
+const {apikey: TMDBApiKey} = functions.config().tmdb;
 const util = require("./util");
 
 // Create a Dialogflow client instance.
 const TraktAgent = dialogflow({
     // The Trakt API client ID for my Action.
-    clientId: CLIENT_ID,
+    clientId: TraktClientId,
     //Debug mode logs the raw JSON payload from the user request or response
-    debug: true,
+    debug: false,
 });
 
 
