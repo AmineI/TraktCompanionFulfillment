@@ -23,6 +23,7 @@ const functions = require('firebase-functions');
 const {id: TraktClientId, endpoint: TraktAPIEndpoint} = functions.config().traktclient;
 const {apikey: TMDBApiKey} = functions.config().tmdb;
 const util = require("./util");
+const traktApi = require("./trakt")(TraktClientId, TraktAPIEndpoint);
 
 // Create a Dialogflow client instance.
 const TraktAgent = dialogflow({
@@ -49,132 +50,6 @@ const Lifespans = {
     DEFAULT: 5,
 };
 
-
-//________________________________________________________\\
-const traktApi = {};
-
-//Todo : move to traktApi.js
-//Todo : Examine if request-promise-native would be better for Node.js v8.
-const rp = require("request-promise");
-
-/**
- * Launch the API request to obtain the user's settings.
- * https://trakt.docs.apiary.io/reference/users/settings
- * @param token auth Access token
- */
-
-traktApi.getUserSettings = function (token) {
-    let settingsOptions = {
-        method: 'GET',
-        uri: `${TraktAPIEndpoint}/users/settings`,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'trakt-api-version': '2',
-            'trakt-api-key': `${CLIENT_ID}`
-        }, json: true,
-        resolveWithFullResponse: true
-    };
-    return rp(settingsOptions);
-};
-
-//Todo test
-/**
- *
- * @param token auth Access token
- * @param textQuery : string Text query to search for
- * @param years : number 4 digit year, or range of years
- * @param page : number result page to get
- * @param types=["show","movie"] : (string[]|string) : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
- * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
- * @param extended : boolean whether to get extended results or not.
- * @param limit : number number of items per page.
- */
-traktApi.getSearchResults = function (token, {textQuery, year = ""}, page = 1, types = ["show", "movie"], extended = false, limit = 10) {
-    if (types === "") {//
-        types = ["show", "movie"];
-    }
-    let searchOptions = {
-        method: 'GET',
-        uri: `${TraktAPIEndpoint}/search/${types}?page=${page}&limit=${limit}${extended === true ? `&extended=full` : ''}${year !== "" ? `&years=${year}` : ''}&query=${encodeURIComponent(textQuery)}`, //-> search/type1,type2,type3?..
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'trakt-api-version': '2',
-            'trakt-api-key': `${CLIENT_ID}`
-        }, json: true,
-        resolveWithFullResponse: true
-    };
-    return rp(searchOptions);
-
-    /*    return traktApi.search(conv.user.access.token, "Who")
-        .then(response => {
-            console.log(response.headers);
-            console.log(response.body);
-            return true;
-        })
-        .catch(err => {
-            console.log(err);
-            return false;
-        });*/
-};
-
-/**
- * @param token auth Access token
- * @param id : string Text query to search for
- * @param id_type="trakt" : string : "","",""  : string Text query to search for
- * @param page=1 : int result page to get
- * @param media_types=["show","movie"] : (string[]|string) : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
- * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
- * @param extended=true : boolean whether to get extended results or not.
- */
-traktApi.getResultById = function (token, id, id_type = "trakt", media_types = ["show", "movie"], extended = true) {
-    if (media_types === "") {//
-        media_types = ["show", "movie"];
-    }
-    let searchOptions = {
-        method: 'GET',
-        uri: `${TraktAPIEndpoint}/search/${id_type}/${encodeURIComponent(id)}?type=${media_types}${extended === true ? `&extended=full` : ''}`, //-> search/type1,type2,type3?..
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'trakt-api-version': '2',
-            'trakt-api-key': `${CLIENT_ID}`
-        }, json: true,
-        resolveWithFullResponse: true
-    };
-    return rp(searchOptions);
-
-};
-
-traktApi.deleteCheckins = function (token) {
-    let requestOptions = {
-        method: 'DELETE',
-        uri: `${TraktAPIEndpoint}/checkin`,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'trakt-api-version': '2',
-            'trakt-api-key': `${CLIENT_ID}`
-        }, json: true,
-        resolveWithFullResponse: true
-    };
-    return rp(requestOptions);
-};
-traktApi.CheckinItem = function (token, item) {
-    let requestOptions = {
-        method: 'POST',
-        uri: `${TraktAPIEndpoint}/checkin`,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'trakt-api-version': '2',
-            'trakt-api-key': `${CLIENT_ID}`
-        }, json: item,
-        resolveWithFullResponse: true
-    };
-    return rp(requestOptions);
-};
 
 
 let tmdb = {};
@@ -251,15 +126,6 @@ function signInHandler(conv, params, signin) {
     }
 
 }
-
-
-//Todo : Manage checkin error when starting a new checkin
-// "If a checkin is already in progress, a 409 HTTP status code will returned. The response will contain an expires_at timestamp which is when the user can check in again."
-
-//Todo : Note, As per https://trakt.tv/branding
-// Checkin seems to be mobile-oriented while Scrobble is meant to be seamless to the user, being attached to play pause stop events etc, in a media player.
-
-//___________________________________________________\\
 
 
 TraktAgent.intent('Default Welcome Intent', (conv) => {
