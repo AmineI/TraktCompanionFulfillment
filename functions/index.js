@@ -61,60 +61,6 @@ const Lifespans = {
 
 const convs = require("./convs");
 
-//TODO Refactor
-/**
- * Handle the status of the user's sign in, after a response from the SignIn helper.
- * @param conv Conversation object
- * @param params
- * @param signin signin.status=='OK' when the sign in was successfully completed.
- * @returns {Promise<T | boolean> | boolean} Promise that returns when the user's Trakt data has been fetched. //Todo : What data to fetch at this moment ? List Sync ?
- */
-async function signInHandler(conv, params, signin) {
-    if (signin.status !== 'OK') {
-        conv.close(`Without the authorization to do so on your Trakt account, I won't be able to update your lists or do anything for you.`);
-
-        let NoSignInMessage2 = new SimpleResponse({
-            speech: '<speak>If you believe I may be evil - <prosody volume="soft" pitch="-10%" rate="100%"> despite my beautiful voice </prosody>- ' +
-                'you can check my source code on GitHub ! <break time="0.5s"/>' +
-                'I only do what you ask, and have <emphasis level="moderate"> absolutely no secret need </emphasis>' +
-                'to fill your account with my own favorite shows.</speak>',
-            text: 'If you believe I may be evil, you can check my source code on GitHub:\n' + //Todo : make the Github public indeed, before the release.
-                'I only do what you ask, and have no secret need to fill your account with my own favorite shows 😉.'
-        });
-        conv.close(NoSignInMessage2);
-        return false;
-    } else {
-        //const accesstoken = conv.user.access.token;
-
-        try {
-            let userSettings = await traktApi.getUserSettings(conv.user.access.token);
-
-            // Todo : This allows to avoid sending back the whole userStorage in turns where its content didn't change.
-            // See https://developers.google.com/actions/assistant/save-data#clear_content_of_the_userstorage_field
-            //conv.user.storage = {};
-
-            //Todo : Obtaining consent prior to accessing userStorage. [Some countries have regulations that require developers to obtain consent from the user before they can access, or save certain information (e.g. personal information) in the userStorage. If you operate in one of these countries and you want to access, or save such information in userStorage, you must use the Confirmation helper to ask consent to the user and obtain the consent before you can start storing such information in userStorage.]
-            //Todo : Tell user what we're saving and offer to change these
-            conv.user.storage.TraktUserSettings = {
-                timezone: userSettings.account.timezone,
-                date_format: userSettings.account.date_format,
-                time_24hr: userSettings.account.time_24hr,
-            };//Todo : Use timezone and format.
-            conv.user.storage.name = userSettings.user.name.split(" ")[0];// Todo : intent to change the user name. There are prebuilt ones on DialogFlow
-
-            //Should I refresh these settings sometimes ?
-            conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to do a lot for you - starting with checking in to a movie or show.")// for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
-            conv.ask(`If you want to know more, just ask ! Anything I can do for you right now ?`);
-            conv.ask(new Suggestions("What can you do ?", "I'm watching the Batman movie", "Check in the first episode of The Office"));//TODO : , "What's next to watch ?", "Call me Master"));
-            //Todo change these suggestions and shorten this dialog.
-
-        } catch (err) {
-            util.requestErrorHandler(conv, err)
-        }
-    }
-
-}
-
 
 TraktAgent.intent('Default Welcome Intent', (conv) => {
     if (!conv.user.access.token) {//The user isn't correctly signed in since we weren't provided with an access token for the user
@@ -153,7 +99,7 @@ TraktAgent.intent('Default Welcome Intent - SignIn_Confirmation', (conv, params,
         convs.signIn.signInLauncher(conv);//TODO : Do not force login each time. Try to implement middleware like express
         return true;
     } else {
-        return signInHandler(conv, {}, 'NotRequested');
+        return convs.signIn.signInHandler(conv, {}, 'NotRequested', traktApi);
     }
 });
 
@@ -161,32 +107,17 @@ TraktAgent.intent('Default Welcome Intent - SignIn_Confirmation', (conv, params,
 TraktAgent.intent('Signin Request', (conv) => convs.signIn.signInLauncher(conv));
 
 // The intent is linked to the `actions_intent_SIGN_IN` event, and thus starts when a sign in request is made, and is either refused or accepted
-TraktAgent.intent('Signin Action', (conv, params, signin) => signInHandler(conv, params, signin));
+TraktAgent.intent('Signin Action', (conv, params, signin) => convs.signIn.signInHandler(conv, params, signin, traktApi));
 
-//Todo : Handle the "start" case in another intent and function ?
-//Todo : Add checkin launch with media data
-//If the intent "Checkin_Edit is matched, we send the conversation data
-TraktAgent.intent('Checkin Stop', (conv) => {
-    conv.ask(new Confirmation(`Okay. Are you sure to stop the checkin right now ?`));
+
+TraktAgent.intent('Checkin Stop', (conv) => conv.ask(new Confirmation(`Okay. Are you sure to stop the current checkin right now ?`))
     // On DialogFlow, the followup intent managing the confirmation then has to have 'actions_intent_CONFIRMATION' as a trigger event, to handle the answer.
-});
+);
 
 //Todo : warning, if the checkin had to be stopped in order to checkin something else
 // We'll have to answer differently and provide the user with the checkin he initially asked for.
-TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) => {
-    if (!confirmation) {
-        conv.ask(`Fine, won't do. How else may I be of assistance ?`);
-        return false;
-    } else {
-        return traktApi.deleteCheckins(conv.user.access.token)//Todo check response for errors
-            .then(response => {
-                conv.ask(`The checkin was successfully stopped`);
-                conv.ask(`Anything else I can do to assist ?`);
-                return true;
-            })
-            .catch((err) => util.requestErrorHandler(conv, err));
-    }
-});
+TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) => convs.checkIn.checkInStopHandler(conv, params, confirmation, traktApi));
+
 
 //Todo : remove other actions contexts when starting an action. Ex : starting the add_watchlist should remove checkin_context
 TraktAgent.intent('Checkin Start', (conv, params) => {
@@ -195,79 +126,111 @@ TraktAgent.intent('Checkin Start', (conv, params) => {
     const {media_item_name, media_type, year, episode_number, season_number} = conv.contexts.get(AppContexts.DATA_ADDITION).parameters;
     //Todo : Mark some parameters as not required in DF if we want to be able to access the data collection intents ourselves for slot filling
 
-    //Todo : If episode/season not given we assume it"s a movie
-    //Todo handle if the asks for the last episode or the newest
-    if (!media_item_name) {
-        //Maybe set contexts for the data collec intent ? / Or no context to keep it with the usual "change item" intent
-        conv.ask("Please provide the show/movie name");
-        //Todo create a followup intent to handle this case
-    } else {
-        conv.followup(AppContexts.SEARCH_DETAILS, {
-            textQuery: media_item_name,
-            media_type: media_type,
-            year: year,
-            search_page: 1, //todo handle this
-            takeBestResultAboveThreshold: true
-        });//Watch out ! followup takes an *event* as input, and not an intent !
-        //todo ?season_number:season_number,
-        //Todo ? episode_number:episode_number
+    //Todo What to do if the user asks for the last episode or the newest ? The entity currently detects a number or ordinal so it will have to be changed on Dialogflow's end.
+    //"last" could be set as a synonym of -1 in DF, and then -1 could be handled properly by the fulfillment..
 
-        //Todo SearchDetails intent must go back to Checkin confirmation when finished.
-        //conv.ask(new Confirmation(`Confirm checkin of ${media_item_name} ?`));//Todo mention episodes when needed through a message constructor.
-    }
+    //We followup in the SEARCH_DETAILS intent, which launches a search request and displaying the results to the user.
+    conv.followup(AppContexts.SEARCH_DETAILS, {
+        textQuery: media_item_name,
+        media_type: media_type,
+        year: year,
+        search_page: 1, //todo handle page changes through an intent.
+        takeBestResultAboveThreshold: true
+    });//Watch out ! followup takes an *event* as input, and not an intent ! And these events' values  are obtained just like if it was a context...
+
+    //SearchDetails goes back to Checkin confirmation when finished because the CheckinData context is still set.
+
 });
 
-TraktAgent.intent('Checkin Start - Confirmation', (conv, params) => {
+//Is called after a choice was made from the search results, and the user confirmed he wanted to check in it.
+TraktAgent.intent('Checkin Start - Confirmation', async (conv, params) => {
     conv.ask(`Sure`);
     let confirmedItem = conv.contexts.get(AppContexts.SEARCH_CHOICE).parameters.chosenItem;
-    let type = confirmedItem.type;
-    let confirmedItemString = confirmedItem[type].title;
-    //TODO FOR EPISODE TOO. This works for movie but returns a show if we searched for an episode. We must get the episode from trakt.
-    if (type === "episode") {//TODO : the type will not be episode I think, but most likely a show, to which I'll add the episode number asked.
-        confirmedItemString += ` season ${confirmedItem.season} episode ${confirmedItem.number}`
+    let mediaType = confirmedItem.type;
+    let itemToSend = {
+        [mediaType]: confirmedItem[mediaType]
+    };
+
+    let isItemReadyToSend = true;
+    let confirmedMediaString = confirmedItem[mediaType].title;
+
+    //For a movie item, we just have to send the movie item to the checkin endpoint.
+    if (mediaType === "show") {//For a show however, we have to add a episode key along with the item to send to the API, to specify the episode to check into.
+        isItemReadyToSend = populateCheckinItemEpisodeValues(conv, itemToSend);
+        confirmedMediaString += itemToSend.season ? ` season ${itemToSend.episode.season} episode ${itemToSend.episode.number}` : ` episode ${itemToSend.episode.number_abs}`;
     }
-    return traktApi.checkInItem(conv.user.access.token, {[type]: confirmedItem[type]})
-        .then(response => {
-                console.log(response.statusCode);
-                conv.ask(`Check in ${confirmedItemString} confirmed ! Have a nice watch ! `);
-                //Todo : delete additional data (& other) contexts on DF or here on success to "go back" to the beginning, or even exit to let the user watch
-                return true;
-            }
-        ).catch(err => {
-            console.error(err);
-            //Todo handle different types of failure
-            conv.ask(`There was an issue checking in ${confirmedItemString}.`);
-            return;
-        });
+
+    if (isItemReadyToSend) {
+        try {
+            let successfulCheckin = await traktApi.checkInItem(conv.user.access.token, itemToSend);
+            conv.close(`Check in of ${confirmedMediaString} successful ! Have a nice watch ! `);
+            //Todo : delete additional data (& other) contexts on DF or here on success to "go back" to the beginning, or even exit to let the user watch
+            conv.contexts.delete(AppContexts.DATA_ADDITION);
+            conv.resetContexts(true);
+
+        } catch (err) {//Todo handle different types of failure?
+            conv.ask(`There was an issue checking in ${confirmedMediaString}.`);
+        }
+    } else {//We are missing some data to be able to send the checkin request.
+        conv.data.followupEventAfterPrompt = AppContexts.CHECKIN_CONFIRMATION;//We note this value in the conversation data, to know that we must directly follow up to come back here once the value was obtained.
+        conv.contexts.set(AppContexts.PROMPT.EPISODE, 3);
+        conv.ask(new SimpleResponse({
+                speech: `Okay ! Which season and/or episode are you watching ?`,
+                text: `Which season/episode are you watching ?`
+            })
+        );
+    }
+});
+
+/**
+ * Populates a dictionary with a episode key, in order for it to be accepted by Trakt Checkin endpoint. Also updates a media description string.
+ * @param conv : object conversation object, containing the contexts and relevant informations.
+ * @param itemToCheckin : object dictionary containing the show object to send to the Trakt API, but missing its episode key. {@link https://trakt.docs.apiary.io/#reference/checkin/checkin/check-into-an-item}
+ */
+function populateCheckinItemEpisodeValues(conv, itemToCheckin) {
+    let success = false;
+    //TODO Handle missing data
+    let userInputs = conv.contexts.get(AppContexts.DATA_ADDITION).parameters;
+    itemToCheckin.episode = {};
+    if (userInputs.season_number && userInputs.episode_number) {
+        itemToCheckin.episode.season = userInputs.season_number;
+        itemToCheckin.episode.number = userInputs.episode_number;
+        success = true;
+    } else {
+        if (userInputs.episode_number) {//We only have episode number : we set it as the absolute episode number, among all seasons.
+            itemToCheckin.episode.number_abs = userInputs.episode_number;
+            success = true;
+        } else {
+            //The episode number is not set, the season number may be unset too but it doesn't matter since we do need at least an episode number.
+            //We are therefore still missing episode info.
+            success = false;
+        }
+    }
+    return success;
+}
+
+/** Follows up by returning to a specified intent, stored in conv.data.followupEventAfterPrompt.
+ * Can be used to return back to the previous intent immediately after receiving the prompt answer.
+ * @param conv : Object conversation object.
+ */
+function followupAfterPrompt(conv) {
+    console.log(`Prompt over. following back with : ${conv.data.followupEventAfterPrompt}`);
+    if (conv.data.followupEventAfterPrompt) {
+        conv.followup(conv.data.followupEventAfterPrompt);
+        delete conv.data.followupEventAfterPrompt;
+    }
+}
+
+//Triggered when the user provided season / episode after being prompted to.
+TraktAgent.intent('Prompt - Season & Episode', async (conv, params) => {
+    conv.contexts.set(AppContexts.PROMPT.EPISODE, 0);//Removes the prompt context now that the value was submitted
+    followupAfterPrompt(conv);
 });
 
 
-//Answers to a choice event from google assistant and a search_choice_event from ourselves
-TraktAgent.intent('SearchDetails - Choice', async (conv, params, option) => {
-    let chosenOptionIndex;
-    //Google Assistant can send the object as an argument to the option parameter, but we can't do that by ourselves with conv.followup.
-    //So the choosed option is either in the event context, or in the option parameter.
+TraktAgent.intent('SearchDetails', (conv, params) => searchHandler(conv, params));
 
-    let eventContext = conv.contexts.get(AppContexts.SEARCH_CHOICE);
-    chosenOptionIndex = (eventContext !== undefined) ? eventContext.parameters.option : option;
-
-    let chosenItem = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters.results[chosenOptionIndex];
-
-    conv.contexts.set(AppContexts.SEARCH_CHOICE, 1, {chosenItem});
-    let responses = await convs.richResponses.buildCardFromTraktItem(chosenItem, tmdb);//todo generate depending on choice.type (movie,show, episode..)
-    conv.ask(...responses);//The spread operator sends the responses array as if they were multiple parameters. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
-
-    /* If the initial search was done without the "extended" parameter we have to do this to get more details
-    return traktApi.getResultById(conv.user.access.token, chosen_option[chosen_option.type].ids.trakt, "trakt", chosen_option.type)
-        .then(response => {
-                let result = response.body[0];
-                displayItemChoice(conv, result);
-                return;
-            });
-     */
-});
-
-TraktAgent.intent('SearchDetails', async (conv, params) => {
+async function searchHandler(conv, params) {
     //If the result relevance score is >=900/1000, we assume it is a relevant match and skip displaying the searchResults list to the user.
     const assumeGoodMatchThreshold = 900;//Todo : this is a test value to adjust.
 
