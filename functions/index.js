@@ -139,6 +139,29 @@ traktApi.deleteCheckins = function (token) {
     };
     return rp(requestOptions);
 };
+traktApi.CheckinItem = function (token, item) {
+    let requestOptions = {
+        method: 'POST',
+        uri: `${TraktAPIEndpoint}/checkin`,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'trakt-api-version': '2',
+            'trakt-api-key': `${CLIENT_ID}`
+        }, json: item,
+        resolveWithFullResponse: true
+    };
+    return rp(requestOptions);
+};
+
+
+let tmdb = {};
+tmdb.getImageUrl = (mediaType, TMDBId) => {
+    //TODO Implement TMDB API, this is a placeholder.
+    return 'https://image.tmdb.org/t/p/w600_and_h900_bestv2/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg';
+
+    //TODO : attribute images from TMDB.
+};
 
 //Todo : Correctly handle errors.
 function requestErrorHandler(conv, err) {
