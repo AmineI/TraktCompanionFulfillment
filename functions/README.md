@@ -42,6 +42,10 @@ To achieve this, a Trakt.tv API App has to be created on Trakt.tv, and the clien
 
 ###Usage
 
+The app is not reviewed by Google so it is not public, but one could say or write "Talk to Trakt Companion" in any Google Assistant client
+Currently, it can search for movies/shows, check in a movie/episode, and delete active checkins. 
+
+
 ###Deployment & Hosting of the Fulfillment webhook
 
 
