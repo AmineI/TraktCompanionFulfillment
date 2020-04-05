@@ -41,9 +41,11 @@ const TraktAgent = dialogflow({
 const AppContexts = {
     LIST_ADDITION: 'listadditiondata',
     CHECKIN_DATA: 'checkindata',
+    CHECKIN_CONFIRMATION: 'confirmcheckin',//Event
     DATA_ADDITION: 'additiondata',
-    SEARCH_DETAILS: 'searchdetails',
-    SEARCH_CHOICE: 'searchchoice'
+    SEARCH_DETAILS: 'searchdetails',//Both Event and context. TODO May cause issues, will have to separate Event/Context.
+    SEARCH_CHOICE: 'searchchoice',//Event , and data
+    PROMPT: {EPISODE: 'episodeprompt'}
 };
 //Note : Contexts names are converted to lowercase by DialogFlow
 

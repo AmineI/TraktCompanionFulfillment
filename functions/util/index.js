@@ -17,7 +17,7 @@ function getPlaceholderPosterUrl(size = "500x750", text = " ") {
 function requestErrorHandler(conv, err) {
     // API call failed...
     console.error(err);
-    conv.ask(`Ouch, I got a ${err.statusCode} network error trying to communicate with Trakt. Todo : Close the conversation or get it back on track..t.`);
+    conv.ask(`Ouch, I got an error ${err.statusCode} trying to communicate with Trakt. Todo : Close the conversation or get it back on track..t.`);
     //Todo : Remove this message ofc. Allows user to retry requests, maybe ?
 }
 
