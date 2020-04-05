@@ -10,6 +10,9 @@ const {
     Confirmation,
     Suggestions,
     BasicCard,
+    Button,
+    Image,
+    Carousel
 } = require('actions-on-google');
 // Import the firebase-functions package for deployment.
 const functions = require('firebase-functions');
@@ -24,10 +27,13 @@ const TraktAPIEndpoint = functions.config().traktclient.endpoint;
 /** Dialogflow Contexts {@link https://dialogflow.com/docs/contexts/input-output-contexts} */
     //Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
 const AppContexts = {
-        LIST_ADDITION: 'ListAdditionData',
-        CHECKIN_ADDITION: 'CheckinAdditionData',
-        DATA_ADDITION: 'AdditionData'
+        LIST_ADDITION: 'listadditiondata',
+        CHECKIN_DATA: 'checkindata',
+        DATA_ADDITION: 'additiondata',
+        SEARCH_DETAILS: 'searchdetails',
+        SEARCH_CHOICE: 'searchchoice'
     };
+//Note : Contexts names are converted to lowercase by DialogFlow
 
 /** Dialogflow Context Lifespans {@link https://dialogflow.com/docs/contexts#lifespan} */
 const Lifespans = {
@@ -42,8 +48,6 @@ const TraktAgent = dialogflow({
     //Debug mode logs the raw JSON payload from the user request or response
     debug: true,
 });
-
-
 
 
 //________________________________________________________\\
@@ -92,14 +96,20 @@ traktApi.getUserSettings = function (token) {
  *
  * @param token auth Access token
  * @param textQuery : string Text query to search for
- * @param types=["show","movie"] : string[] : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
+ * @param years : number 4 digit year, or range of years
+ * @param page : number result page to get
+ * @param types=["show","movie"] : (string[]|string) : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
  * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
+ * @param extended : boolean whether to get extended results or not.
+ * @param limit : number number of items per page.
  */
-traktApi.getSearchResults = function (token, textQuery, types = ["show", "movie"]) {
-
+traktApi.getSearchResults = function (token, {textQuery, year = ""}, page = 1, types = ["show", "movie"], extended = false, limit = 10) {
+    if (types === "") {//
+        types = ["show", "movie"];
+    }
     let searchOptions = {
         method: 'GET',
-        uri: `${TraktAPIEndpoint}/search/${types}?query=${encodeURIComponent(textQuery)}`, //-> search/type1,type2,type3?..
+        uri: `${TraktAPIEndpoint}/search/${types}?page=${page}&limit=${limit}${extended === true ? `&extended=full` : ''}${year !== "" ? `&years=${year}` : ''}&query=${encodeURIComponent(textQuery)}`, //-> search/type1,type2,type3?..
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
@@ -122,6 +132,34 @@ traktApi.getSearchResults = function (token, textQuery, types = ["show", "movie"
         });*/
 };
 
+/**
+ * @param token auth Access token
+ * @param id : string Text query to search for
+ * @param id_type="trakt" : string : "","",""  : string Text query to search for
+ * @param page=1 : int result page to get
+ * @param media_types=["show","movie"] : (string[]|string) : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
+ * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
+ * @param extended=true : boolean whether to get extended results or not.
+ */
+traktApi.getResultById = function (token, id, id_type = "trakt", media_types = ["show", "movie"], extended = true) {
+    if (media_types === "") {//
+        media_types = ["show", "movie"];
+    }
+    let searchOptions = {
+        method: 'GET',
+        uri: `${TraktAPIEndpoint}/search/${id_type}/${encodeURIComponent(id)}?type=${media_types}${extended === true ? `&extended=full` : ''}`, //-> search/type1,type2,type3?..
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'trakt-api-version': '2',
+            'trakt-api-key': `${CLIENT_ID}`
+        }, json: true,
+        resolveWithFullResponse: true
+    };
+    return rp(searchOptions);
+
+};
+
 traktApi.deleteCheckins = function (token) {
     let requestOptions = {
         method: 'DELETE',
@@ -135,6 +173,29 @@ traktApi.deleteCheckins = function (token) {
         resolveWithFullResponse: true
     };
     return rp(requestOptions);
+};
+traktApi.CheckinItem = function (token, item) {
+    let requestOptions = {
+        method: 'POST',
+        uri: `${TraktAPIEndpoint}/checkin`,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'trakt-api-version': '2',
+            'trakt-api-key': `${CLIENT_ID}`
+        }, json: item,
+        resolveWithFullResponse: true
+    };
+    return rp(requestOptions);
+};
+
+
+let tmdb = {};
+tmdb.getImageUrl = (mediaType, TMDBId) => {
+    //TODO Implement TMDB API, this is a placeholder.
+    return 'https://image.tmdb.org/t/p/w600_and_h900_bestv2/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg';
+
+    //TODO : attribute images from TMDB.
 };
 
 //Todo : Correctly handle errors.
@@ -297,6 +358,216 @@ TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) =>
     }
 });
 
+//Todo : remove other actions contexts when starting an action. Ex : starting the add_watchlist should remove checkin_context
+TraktAgent.intent('Checkin Start', (conv, params) => {
+
+    //Todo : add the DATA_ADDITION to dialogflow intent
+    //Todo : set contexts lifespan to super high on DF so that we don't forget the point if we take a lot of time in the search intent.
+    const {media_item_name, media_type, year, episode_number, season_number} = conv.contexts.get(AppContexts.DATA_ADDITION).parameters;
+    //Todo : Mark some parameters as not required in DF if we want to be able to access the data collection intents ourselves for slot filling
+
+    //Todo : If episode/season not given we assume it"s a movie
+    //Todo handle if the asks for the last episode or the newest
+    if (!media_item_name) {
+        //Maybe set contexts for the data collec intent ? / Or no context to keep it with the usual "change item" intent
+        conv.ask("Please provide the show/movie name");
+        //Todo create a followup intent to handle this case
+    } else {
+        conv.followup(AppContexts.SEARCH_DETAILS, {
+            textQuery: media_item_name,
+            media_type: media_type,
+            year: year,
+            search_page: 1, //todo handle this
+            takeBestResultAboveThreshold: true
+        });//Watch out ! followup takes an *event* as input, and not an intent !
+        //todo ?season_number:season_number,
+        //Todo ? episode_number:episode_number
+
+        //Todo SearchDetails intent must go back to Checkin confirmation when finished.
+        //conv.ask(new Confirmation(`Confirm checkin of ${media_item_name} ?`));//Todo mention episodes when needed through a message constructor.
+    }
+});
+
+TraktAgent.intent('Checkin Start - Confirmation', (conv, params) => {
+    conv.ask(`Sure`);
+    let confirmedItem = conv.contexts.get(AppContexts.SEARCH_CHOICE).parameters.chosenItem;
+    let type = confirmedItem.type;
+    let confirmedItemString = confirmedItem[type].title;
+    //TODO FOR EPISODE TOO. This works for movie but returns a show if we searched for an episode. We must get the episode from trakt.
+    if (type === "episode") {//TODO : the type will not be episode I think, but most likely a show, to which I'll add the episode number asked.
+        confirmedItemString += ` season ${confirmedItem.season} episode ${confirmedItem.number}`
+    }
+    return traktApi.CheckinItem(conv.user.access.token, {[type]: confirmedItem[type]})
+        .then(response => {
+                console.log(response.statusCode);
+                conv.ask(`Check in ${confirmedItemString} confirmed ! Have a nice watch ! `);
+                //Todo : delete additional data (& other) contexts on DF or here on success to "go back" to the beginning, or even exit to let the user watch
+                return true;
+            }
+        ).catch(err => {
+            console.error(err);
+            //Todo handle different types of failure
+            conv.ask(`There was an issue checking in ${confirmedItemString}.`);
+            return;
+        });
+});
+
+
+//Todo, specify between types, and rename
+function displayResultsCarousel(conv, results) {
+
+    if (!conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
+        conv.ask('Sorry, try this on a screen device or select the ' +
+            'phone surface in the simulator.');
+        //todo say the first result or something
+    }
+
+    let type, item, itemTitle;
+    let carouselItems = {};
+    let itemIndex = 0;
+    let itemTitlesCountsArray = [];
+    results.forEach(result => {
+            type = result.type;
+            item = result[type];
+            itemTitle = `${item.title} (${item.year})`;
+
+            //Handle cases where multiple items have the same title, since this is not allowed by Google Assistant. We thus  append a number after the item.
+            if (itemTitle in itemTitlesCountsArray) {
+                itemTitlesCountsArray[itemTitle] += 1;
+                itemTitle += ` (${itemTitlesCountsArray[itemTitle]})`
+            } else {
+                itemTitlesCountsArray[itemTitle] = 1
+            }
+            // carouselItems must be a dictionary which key will be returned on selection.
+            // We use the index of the element in the search results as a key for ease of use when gathering the result after select.
+            carouselItems[itemIndex] = {
+                synonyms: [//TODO find synonyms ?
+                ],
+                title: itemTitle,//Titles must be unique.
+                description: item.overview,
+                image: new Image({
+                    url: tmdb.getImageUrl(type, item.ids.tmdb),//TODO What if tmdb id not set ?
+                    alt: `Poster of ${item.title}`
+                })
+            };
+            itemIndex++;
+        }
+    );
+
+    conv.ask(new Carousel({
+        title: 'Matching Results',
+        items: carouselItems
+    }));
+    return;
+}
+
+//Todo, specify between types, and rename
+function displayItemChoice(conv, choice) {
+    //Todo extract func to return only basic cards by media type
+
+    //todo Display depending on choice.type (movie,show, episode..)
+    let item = choice[choice.type];
+
+    if (!conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
+        conv.ask('Sorry, try this on a screen device or select the ' +
+            'phone surface in the simulator.');
+        //todo say the first result or something
+    }
+    // Create a basic card
+    //Todo include dynamic info from search (should be in the choice var)
+    conv.ask(`Sure, here are the details of the ${choice.type} ${item.title}, is it ok ?`);
+
+    conv.ask(new BasicCard({
+        subtitle: `Runtime ${item.runtime}min - ` + (item.tagline || `${item.aired_episodes} aired episodes`),//todo : tagline exists only on movies, and aired episodes only on shows. I believe.
+        title: `${item.title} (${item.year})`,
+        text: item.overview,
+        buttons: new Button({
+            title: 'Trakt page',
+            url: `https://trakt.tv/${choice.type}s/${item.ids.slug}`,//todo : this is only valid for show & movie
+        }),
+        image: new Image({
+            url: tmdb.getImageUrl(choice),//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
+            alt: 'Batman logo from tmdb',
+        }),
+        display: 'WHITE',
+    }));
+    /*text2: `*emphasis* or _italics_, **strong** or __bold__,
+     and ***bold itallic*** or ___strong emphasis___ as well as other things like line  \nbreaks`,
+     // Note the two spaces before '\n' required for a line break to be rendered in the card.
+     //TODO remove text2 which is here for info purpose.
+ */
+    return;
+
+}
+
+//Answers to a choice event from google assistant and a search_choice_event from ourselvesan
+TraktAgent.intent('SearchDetails - Choice', (conv, params, option) => {
+    let chosenOptionIndex;
+    //Google Assistant can send the object as an argument to the option parameter, but we can't do that by ourselves with conv.followup.
+    //So the choosed option is either in the event context, or in the option parameter.
+
+    let eventContext = conv.contexts.get(AppContexts.SEARCH_CHOICE);
+    chosenOptionIndex = (eventContext !== undefined) ? eventContext.parameters.option : option;
+
+    let chosenItem = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters.results[chosenOptionIndex];
+
+    conv.contexts.set(AppContexts.SEARCH_CHOICE, 1, {chosenItem});
+    displayItemChoice(conv, chosenItem);//todo Display depending on choice.type (movie,show, episode..)
+
+    /* If the initial search was done without the "extended" parameter we have to do this to get more details
+    return traktApi.getResultById(conv.user.access.token, chosen_option[chosen_option.type].ids.trakt, "trakt", chosen_option.type)
+        .then(response => {
+                let result = response.body[0];
+                displayItemChoice(conv, result);
+                return;
+            });
+     */
+});
+
+TraktAgent.intent('SearchDetails', (conv, params) => {
+    //If the result relevance score is >=900/1000, we assume it is a relevant match and skip displaying the results list to the user.
+    const assumeGoodMatchThreshold = 900;//Todo : this is a test value to adjust.
+
+    //TODO HANDLE EPISODES/SHOWS. Working with movies rn.
+    let {media_type, search_page, textQuery, year, takeBestResultAboveThreshold} = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters;
+    //Google Assistant can send the object as an argument, but we can't do that by ourselves with conv.followup. So the data is in the event context
+
+    //Todo search only if the query changed.
+    return traktApi.getSearchResults(conv.user.access.token,
+        {textQuery, year},
+        parseInt(search_page), media_type, true, 5)
+        .then(response => {
+                let results = response.body;
+                //We store the search results in the context so that we can "continue" from here if the user needs to check the next page or go back to the search after a wrong choice.
+                conv.contexts.set(AppContexts.SEARCH_DETAILS, 5, {
+                    media_type,
+                    search_page, textQuery, year,
+                    results
+                });
+                switch (results.length) {
+                    case 0:
+                        conv.ask("There are no results. Please retry with another query.");
+                        break;
+                    case 1://If there is a single result, no need to display a list - we follow up as if the user choes this result.
+                        conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
+                        break;
+                    default://2 or more results
+                        if (takeBestResultAboveThreshold && results[0].score > assumeGoodMatchThreshold
+                            && results[1].score < threshold) {//Multiple results with the same name can have a 1000/1000 score so we have to check if there are multiple results above the threshold.
+                            //If there is only one relevant result, we follow up with it, skipping the display of all results.
+                            conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
+                        } else {//If there are multiple results, and we couldn't take a guess, we display all results.
+                            conv.ask("Here are the results");
+                            //todo see if a list is better suited than a carousel here. Useful sample https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js
+                            //Send to the user a carousel of results to choose from
+                            displayResultsCarousel(conv, results);
+                        }
+                        break;
+                }
+                return;
+            }
+        );
+});
 
 // Todo : Fill help intent text on dialogflow
 
