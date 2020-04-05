@@ -1,11 +1,11 @@
 const axiosModule = require('axios').default;
-//TODO REMOVE const qs = require('qs');
+
 const tmdbEndpoint = "https://api.themoviedb.org/3/";
 
 const axios = axiosModule.create({
-//TODO REMOVE        params: qs.stringify(params),
     baseURL: tmdbEndpoint
 });
+
 ImageSize = {
     "Backdrop": {
         "SMALL": "w300",
@@ -43,15 +43,15 @@ ImageSize = {
         "ORIGINAL": "original"
     }
 };
-TMDBCallErrorMessage = "An issue occurred interacting with the TMDB API";
+const TMDBCallErrorMessage = "An issue occurred interacting with the TMDB API";
 
 class TMDB {
     constructor(ApiKey) {
         this.APIKey = ApiKey;
     };
 
-    async getImageUrl(mediaType, mediaTMDBId) {
-        if(mediaTMDBId==null){
+    async getPosterUrl(mediaType, mediaTMDBId) {
+        if (mediaTMDBId == null) {
             return null;
         }
         const posterPath = await this.getPosterPath(mediaType, mediaTMDBId);

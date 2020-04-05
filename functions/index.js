@@ -55,8 +55,11 @@ const Lifespans = {
 //Todo : Correctly handle errors.
 
 //Todo : DialogFlow : Handle the case when user explicitly ask to refresh his information. or not since he can unlink through G.Assistant
+// In this case, tell him how to unlink account maybe ?
+
 const convs = require("./convs");
 
+//TODO Refactor
 /**
  * Handle the status of the user's sign in, after a response from the SignIn helper.
  * @param conv Conversation object
@@ -223,7 +226,7 @@ TraktAgent.intent('Checkin Start - Confirmation', (conv, params) => {
     if (type === "episode") {//TODO : the type will not be episode I think, but most likely a show, to which I'll add the episode number asked.
         confirmedItemString += ` season ${confirmedItem.season} episode ${confirmedItem.number}`
     }
-    return traktApi.CheckinItem(conv.user.access.token, {[type]: confirmedItem[type]})
+    return traktApi.checkInItem(conv.user.access.token, {[type]: confirmedItem[type]})
         .then(response => {
                 console.log(response.statusCode);
                 conv.ask(`Check in ${confirmedItemString} confirmed ! Have a nice watch ! `);
@@ -271,7 +274,7 @@ function displayResultsCarousel(conv, results) {
                 title: itemTitle,//Titles must be unique.
                 description: item.overview,
                 image: new Image({
-                    url: tmdb.getImageUrl(type, item.ids.tmdb),//TODO What if tmdb id not set ?
+                    url: tmdb.getPosterUrl(type, item.ids.tmdb),//TODO What if tmdb id not set ?
                     alt: `Poster of ${item.title}`
                 })
             };
@@ -311,7 +314,7 @@ function displayItemChoice(conv, choice) {
             url: `https://trakt.tv/${choice.type}s/${item.ids.slug}`,//todo : this is only valid for show & movie
         }),
         image: new Image({
-            url: tmdb.getImageUrl(choice.type, item.ids.tmdb),//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
+            url: tmdb.getPosterUrl(choice.type, item.ids.tmdb),//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
             alt: 'Batman logo from tmdb',
         }),
         display: 'WHITE',
