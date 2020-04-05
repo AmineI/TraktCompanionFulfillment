@@ -1,6 +1,7 @@
 const axiosModule = require('axios').default;
 
 const tmdbEndpoint = "https://api.themoviedb.org/3/";
+const baseImageUrl = "http://image.tmdb.org/t/p/";
 
 const axios = axiosModule.create({
     baseURL: tmdbEndpoint
@@ -59,6 +60,27 @@ class TMDB {
         //TODO : Indicate somewhere that the image source is TMDB.
     };
 
+    async getPosterPath(mediaType, mediaId) {
+        const getMediaData = (mediaType == "show") ? this.getShowData : this.getMovieData;
+        try {
+            const resbody = await getMediaData.call(this, mediaId, "/images", {"include_image_language": "en,null"});//We must pass the "this" context on call, as it is lsot otherwise with a standard function call
+            return resbody.posters[0].file_path;//TODO Handle errors, as some entries don't have posters sometimes.
+        } catch (err) {
+            console.error(err.response.status);
+            console.error(err.config);
+            throw TMDBCallErrorMessage;
+        }
+    }
+
+    buildImageUrl(imagePath, size = ImageSize.Poster.ORIGINAL) {
+        if (imagePath == null) {
+            return null;
+        }
+        return baseImageUrl + size + imagePath;
+        // +w185 + /xFofUu6o9iVnqh7fbnLLEcolxEw.jpg
+        // w185 = width 185px. doc info : https://developers.themoviedb.org/3/getting-started/images
+    }
+
 
     async searchMovieData(movieName, releaseYear = null) {
         try {
@@ -73,7 +95,8 @@ class TMDB {
             });
             return res.data;
         } catch (err) {
-            console.error(err);
+            console.error(err.response.status);
+            console.error(err.config);
             throw TMDBCallErrorMessage;
         }
     }
@@ -90,7 +113,8 @@ class TMDB {
             });
             return res.data;
         } catch (err) {
-            console.error(err);
+            console.error(err.response.status);
+            console.error(err.config);
             throw TMDBCallErrorMessage;
         }
     }
@@ -107,32 +131,13 @@ class TMDB {
             });
             return res.data;
         } catch (err) {
-            console.error(err);
+            console.error(err.response.status);
+            console.error(err.config);
             throw TMDBCallErrorMessage;
         }
     }
 
-    async getPosterPath(mediaType, mediaId) {
-        const getMediaData = (mediaType == "show") ? this.getShowData : this.getMovieData;
-        try {
-            const resbody = await getMediaData.call(this, mediaId, "/images", {"include_image_language": "en,null"});//We must pass the "this" context on call, as it is lsot otherwise with a standard function call
-            return resbody.posters[0].file_path;//TODO Handle errors, as some entries don't have posters sometimes.
-        } catch (err) {
-            console.error(err);
-            throw TMDBCallErrorMessage;
-        }
-    }
-
-    async getDirector(movieid) {/*
-        return this.getMovieData(movieid, '/credits').then(responseBody => {
-            for (let crewMember of responseBody.crew) {
-                if (crewMember.job === "Director") {
-                    return crewMember;
-                }
-            }
-            return undefined;
-        });*/
-
+    async getDirector(movieid) {
         try {
             const resbody = await this.getMovieData(movieid, '/credits');
             for (let crewMember of resbody.crew) {
@@ -142,23 +147,11 @@ class TMDB {
             }
             return null;
         } catch (err) {
-            console.error(err);
+            console.error(err.response.status);
+            console.error(err.config);
             throw TMDBCallErrorMessage;
         }
     }
-
-    buildImageUrl(imagePath, size = ImageSize.Poster.ORIGINAL) {
-        if (imagePath == null) {
-            return null;
-        }
-        const baseUrl = "http://image.tmdb.org/t/p/";
-        return baseUrl + size + imagePath;
-        // +w185 + /xFofUu6o9iVnqh7fbnLLEcolxEw.jpg
-        // w185 = width 185px.
-        // doc info : https://developers.themoviedb.org/3/getting-started/images
-    }
-
-
 }
 
 module.exports = (apiKey) => new TMDB(apiKey);
