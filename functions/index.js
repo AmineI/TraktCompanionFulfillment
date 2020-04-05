@@ -278,7 +278,7 @@ async function searchHandler(conv, params) {
 
 //Answers to a choice event from google assistant, after displaying a carousel/list for example..
 //also answers a search_choice_event from ourselves, if we think the result is most likely what the user wants,
-TraktAgent.intent('SearchDetails - Choice', async (conv, params, option) => convs.search.searchChoiceHandler(conv, params, option));
+TraktAgent.intent('SearchDetails - Choice', async (conv, params, option) => searchChoiceHandler(conv, params, option));
 
 async function searchChoiceHandler(conv, params, option) {
 
