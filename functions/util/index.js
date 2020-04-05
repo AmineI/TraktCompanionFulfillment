@@ -9,6 +9,10 @@ function getRandomResponse(ResponsesArray) {
     return ResponsesArray[randomIndex];
 }
 
+function getPlaceholderPosterUrl(size = "500x750", text = " ") {
+    return `https://via.placeholder.com/${size}?text=${text}`
+}
+
 //TODO use this properly when needed ?
 function requestErrorHandler(conv, err) {
     // API call failed...
@@ -19,5 +23,6 @@ function requestErrorHandler(conv, err) {
 
 module.exports = {
     getRandomResponse,
+    getPlaceholderPosterUrl,
     requestErrorHandler
 };
