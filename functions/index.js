@@ -125,6 +125,34 @@ traktApi.getSearchResults = function (token, {textQuery, year = ""}, page = 1, t
         });*/
 };
 
+/**
+ * @param token auth Access token
+ * @param id : string Text query to search for
+ * @param id_type="trakt" : string : "","",""  : string Text query to search for
+ * @param page=1 : int result page to get
+ * @param media_types=["show","movie"] : (string[]|string) : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
+ * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
+ * @param extended=true : boolean whether to get extended results or not.
+ */
+traktApi.getResultById = function (token, id, id_type = "trakt", media_types = ["show", "movie"], extended = true) {
+    if (media_types === "") {//
+        media_types = ["show", "movie"];
+    }
+    let searchOptions = {
+        method: 'GET',
+        uri: `${TraktAPIEndpoint}/search/${id_type}/${encodeURIComponent(id)}?type=${media_types}${extended === true ? `&extended=full` : ''}`, //-> search/type1,type2,type3?..
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'trakt-api-version': '2',
+            'trakt-api-key': `${CLIENT_ID}`
+        }, json: true,
+        resolveWithFullResponse: true
+    };
+    return rp(searchOptions);
+
+};
+
 traktApi.deleteCheckins = function (token) {
     let requestOptions = {
         method: 'DELETE',
