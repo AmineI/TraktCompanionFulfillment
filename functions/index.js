@@ -27,9 +27,10 @@ const TraktAPIEndpoint = functions.config().traktclient.endpoint;
     //Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
 const AppContexts = {
         LIST_ADDITION: 'listadditiondata',
-        CHECKIN_ADDITION: 'checkinadditiondata',
+        CHECKIN_DATA: 'checkindata',
         DATA_ADDITION: 'additiondata',
-        SEARCH_DETAILS: 'searchdetails'
+        SEARCH_DETAILS: 'searchdetails',
+        SEARCH_CHOICE: 'searchchoice'
     };
 //Note : Contexts names are converted to lowercase by DialogFlow
 
