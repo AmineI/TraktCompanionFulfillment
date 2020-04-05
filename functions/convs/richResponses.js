@@ -102,8 +102,8 @@ async function buildCardFromTraktItem(traktItem, tmdbApiInstance) {
     }
 
     const simpleResponse = new SimpleResponse({
-        speech: `Sure, here are the details of the ${traktItem.type} ${item.title}, is it ok ?`,
-        text: `Here are the details of the ${traktItem.type} ${item.title}, is it ok ?`,
+        speech: `Sure, here are the details of the ${traktItem.type} ${item.title}, is it the good one ?`,
+        text: `Here are the details of the ${traktItem.type} ${item.title}, is it the one you want ?`,
     });
 
     const basicCard = new BasicCard(cardOptions);

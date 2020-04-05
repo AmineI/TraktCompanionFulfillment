@@ -101,11 +101,10 @@ async function signInHandler(conv, params, signin) {
             conv.user.storage.name = userSettings.user.name.split(" ")[0];// Todo : intent to change the user name. There are prebuilt ones on DialogFlow
 
             //Should I refresh these settings sometimes ?
-            conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to check in for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
-            conv.ask(`Don't hesitate to ask me for help if you can't handle all these possibilities ! Anything I can do for you right now ?`);
-            conv.ask(new Suggestions("What can you do ?", "I'm watching Batman", "What's next to watch ?", "Call me Master"));
+            conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to do a lot for you - starting with checking in to a movie or show.")// for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
+            conv.ask(`If you want to know more, just ask ! Anything I can do for you right now ?`);
+            conv.ask(new Suggestions("What can you do ?", "I'm watching the Batman movie", "Check in the first episode of The Office"));//TODO : , "What's next to watch ?", "Call me Master"));
             //Todo change these suggestions and shorten this dialog.
-
 
         } catch (err) {
             util.requestErrorHandler(conv, err)
@@ -128,14 +127,14 @@ TraktAgent.intent('Default Welcome Intent', (conv) => {
     } else {//Google sent us an access token for the user, so his account his correctly linked.
 
         //Welcome him
-        let responseMessage = util.getRandomResponse(["Oh hai ! What can I do for you :) ?",
+        let responseMessage = util.getRandomResponse(["Oh hai ! What can I do for you?",
             "Holà, how can I help you ?",
             "It's you ! What do you want me to do ?",
             "Hello! How can I help you?",
             "Good day! What can I do for you today?",
             "Greetings! How can I assist?"]);//Todo : Watch out, the "smiley face" is read aloud.
         conv.ask(responseMessage);
-        conv.ask(new Suggestions("What can you do ?", "Check in to $popular", "Add to my watchlist", "I've seen $popular_movie", "What's next to watch ?"))
+        conv.ask(new Suggestions("What can you do ?", "I'm watching Batman", "Check in Game of Thrones")); //TODO "Check in to $popular", "Add to my watchlist", "I've seen $popular_movie", "What's next to watch ?"))
         //Todo : change these messages and add suggestions.
     }
 });
@@ -170,7 +169,7 @@ TraktAgent.intent('Checkin Stop', (conv) => {
     // On DialogFlow, the followup intent managing the confirmation then has to have 'actions_intent_CONFIRMATION' as a trigger event, to handle the answer.
 });
 
-//Todo : warning, if the checkin was stopped because it was needed to check in something else
+//Todo : warning, if the checkin had to be stopped in order to checkin something else
 // We'll have to answer differently and provide the user with the checkin he initially asked for.
 TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) => {
     if (!confirmation) {
@@ -190,8 +189,7 @@ TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) =>
 //Todo : remove other actions contexts when starting an action. Ex : starting the add_watchlist should remove checkin_context
 TraktAgent.intent('Checkin Start', (conv, params) => {
 
-    //Todo : add the DATA_ADDITION to dialogflow intent
-    //Todo : set contexts lifespan to super high on DF so that we don't forget the point if we take a lot of time in the search intent.
+    //Todo : set contexts lifespan high on DF so that we don't forget the point if we take a lot of time in the search intent.
     const {media_item_name, media_type, year, episode_number, season_number} = conv.contexts.get(AppContexts.DATA_ADDITION).parameters;
     //Todo : Mark some parameters as not required in DF if we want to be able to access the data collection intents ourselves for slot filling
 
@@ -287,7 +285,7 @@ TraktAgent.intent('SearchDetails', async (conv, params) => {
     });
     switch (searchResults.length) {
         case 0:
-            conv.ask("There are no searchResults. Please retry with another query.");
+            conv.ask(`There are no results for ${textQuery}. Please retry with another query.`);
             break;
         case 1://If there is a single result, no need to display a list - we follow up as if the user choes this result.
             conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
