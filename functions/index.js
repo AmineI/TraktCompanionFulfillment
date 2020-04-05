@@ -243,11 +243,13 @@ async function searchHandler(conv, params) {
         parseInt(search_page), media_type, true, 5);
 
     //We store the search searchResults in the context so that we can "continue" from here if the user needs to check the next page or go back to the search after a wrong choice.
+    //We also change the default behavior or selecting the (seemingly) most relevant item sometimes.
     conv.contexts.set(AppContexts.SEARCH_DETAILS, 5, {
         media_type,
         search_page, textQuery, year,
+        takeBestResultAboveThreshold: false,
         results: searchResults
-    });
+    });//
     switch (searchResults.length) {
         case 0:
             conv.ask(`There are no results for ${textQuery}. Please retry with another query.`);
@@ -264,25 +266,58 @@ async function searchHandler(conv, params) {
                 //todo see if a list is better suited than a carousel here. Useful sample https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js
                 //Send to the user a carousel of searchResults to choose from
                 let responses = (await convs.richResponses.buildCarouselFromTraktEntries(searchResults, tmdb));
-                conv.ask(...responses);//The spread operator sends the responses array as if they were multiple parameters. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
+                let suggestions = new Suggestions("The first one", "More results");//TODO add it to my watchlist, etc
+
+                conv.ask(...responses, suggestions);//The spread operator sends the responses array as if they were multiple parameters. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
                 //TODO Del func displayResultsCarousel(conv, searchResults);
             }
             break;
     }
+}
+
+
+//Answers to a choice event from google assistant, after displaying a carousel/list for example..
+//also answers a search_choice_event from ourselves, if we think the result is most likely what the user wants,
+TraktAgent.intent('SearchDetails - Choice', async (conv, params, option) => convs.search.searchChoiceHandler(conv, params, option));
+
+async function searchChoiceHandler(conv, params, option) {
+
+    let chosenOptionIndex;
+    //Google Assistant can send the object as an argument to the option parameter, but we can't do that by ourselves with conv.followup.
+    //So the choosed option is either in the event context, or in the option parameter.
+
+    let eventContext = conv.contexts.get(AppContexts.SEARCH_CHOICE);
+    chosenOptionIndex = (eventContext !== undefined) ? eventContext.parameters.option : option;
+
+    let chosenItem = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters.results[chosenOptionIndex];
+
+    conv.contexts.set(AppContexts.SEARCH_CHOICE, 1, {chosenItem});
+    let responses = await convs.richResponses.buildCardFromTraktItem(chosenItem, tmdb);//todo generate depending on choice.type (movie,show, episode..)
+    let suggestions = new Suggestions("Yes", "Not this one", "go back to the results");//TODO add it to my watchlist, etc
+    conv.ask(...responses, suggestions);//The spread operator sends the responses array as if they were multiple parameters. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
+}
+
+TraktAgent.intent('SearchDetails - Choice refused', async (conv, params) => {
+    conv.followup(AppContexts.SEARCH_DETAILS, conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters);//TODO Replace most followups by simple functions calls
+    //We have to pass the orginal context parameters because it deletes all the context's parameters otherwise. Should separate events and contexts better.
+});
+
+TraktAgent.intent('SearchDetails - More results', async (conv, params) => {
+    let searchDetailsParams = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters;
+    searchDetailsParams.search_page += 1;
+    conv.followup(AppContexts.SEARCH_DETAILS, searchDetailsParams);//TODO Replace most followups by simple functions calls
+    //We have to pass the orginal context parameters because it deletes all the context's parameters otherwise. Should separate events and contexts better.
 });
 
 // Todo : Fill help intent text on dialogflow
 
-
 //Todo : Review ALL text dialogs and suggestions, and add them to separated strings
 //Todo : Set conversations as end when needed
 
-//Todo : Firebase free invocation quota is around 1 million, huh. Optimize this someday to reduce the number of calls to the webhook, I guess ?
-//Todo : Get the popular movies once in a while to "cache" them in some.. storage somewhere ?
+//Todo : Firebase free invocation quota is around 1 million. It may prove useful to optimize the the number of calls to the webhook.
 
-//__________________________________________________________________\\
 //Todo : Update Actions Console on Google directory info before deploying any Prod/Beta/Alpha to the public.
-//It is filled with FAKE data right now.
+// as welll as the account linking instructions. It is filled with fake data from the staging environment right now.
 
 /**
  * Set the DialogflowApp object to handle the HTTPS POST request.
