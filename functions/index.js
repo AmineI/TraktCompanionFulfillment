@@ -34,14 +34,14 @@ const TraktAgent = dialogflow({
 
 
 /** Dialogflow Contexts {@link https://dialogflow.com/docs/contexts/input-output-contexts} */
-    //Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
+//Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
 const AppContexts = {
-        LIST_ADDITION: 'listadditiondata',
-        CHECKIN_DATA: 'checkindata',
-        DATA_ADDITION: 'additiondata',
-        SEARCH_DETAILS: 'searchdetails',
-        SEARCH_CHOICE: 'searchchoice'
-    };
+    LIST_ADDITION: 'listadditiondata',
+    CHECKIN_DATA: 'checkindata',
+    DATA_ADDITION: 'additiondata',
+    SEARCH_DETAILS: 'searchdetails',
+    SEARCH_CHOICE: 'searchchoice'
+};
 //Note : Contexts names are converted to lowercase by DialogFlow
 
 /** Dialogflow Context Lifespans {@link https://dialogflow.com/docs/contexts#lifespan} */
@@ -49,14 +49,6 @@ const Lifespans = {
     DEFAULT: 5,
 };
 
-
-// Create a Dialogflow client instance.
-const TraktAgent = dialogflow({
-    // The Trakt API client ID for my Action.
-    clientId: CLIENT_ID,
-    //Debug mode logs the raw JSON payload from the user request or response
-    debug: true,
-});
 
 //________________________________________________________\\
 const traktApi = {};
@@ -277,7 +269,6 @@ TraktAgent.intent('Default Welcome Intent', (conv) => {
             `If you just watched something, or if you're in a rush to check in a movie, I can do all that for you, and more !\n` +
             `But firstly, you'll have to authorize me to checkin for you, and update your list on your behalf. Is it ok ?`;
 
-
         //This sets the context to be a followup of DefaultWelcomeIntent before asking for User confirmation, as the intent handling the confirmation has to be matched only after this specific conversation.
         conv.contexts.set('DefaultWelcomeIntent-followup', 4);
         conv.ask(new Confirmation(introduction));//Todo : This is not even a prompt, huh. Change it.
@@ -291,7 +282,7 @@ TraktAgent.intent('Default Welcome Intent', (conv) => {
             "Good day! What can I do for you today?",
             "Greetings! How can I assist?"]);//Todo : Watch out, the "smiley face" is read aloud.
         conv.ask(responseMessage);
-        conv.ask(new Suggestions("What can you do ?", "Check in to $popular", "Add $pop to my watchlist", "I've seen $popular_movie", "What's next to watch ?"))
+        conv.ask(new Suggestions("What can you do ?", "Check in to $popular", "Add to my watchlist", "I've seen $popular_movie", "What's next to watch ?"))
         //Todo : change these messages and add suggestions.
     }
 });
@@ -333,9 +324,8 @@ TraktAgent.intent('Checkin Stop - Confirmation', (conv, params, confirmation) =>
         conv.ask(`Fine, won't do. How else may I be of assistance ?`);
         return false;
     } else {
-        return traktApi.deleteCheckins(conv.user.access.token)                //Todo check response for errors
+        return traktApi.deleteCheckins(conv.user.access.token)//Todo check response for errors
             .then(response => {
-
                 conv.ask(`The checkin was successfully stopped`);
                 conv.ask(`Anything else I can do to assist ?`);
                 return true;
@@ -407,7 +397,6 @@ function displayResultsCarousel(conv, results) {
             'phone surface in the simulator.');
         //todo say the first result or something
     }
-
     let type, item, itemTitle;
     let carouselItems = {};
     let itemIndex = 0;
@@ -539,7 +528,7 @@ TraktAgent.intent('SearchDetails', (conv, params) => {
                         break;
                     default://2 or more results
                         if (takeBestResultAboveThreshold && results[0].score > assumeGoodMatchThreshold
-                            && results[1].score < threshold) {//Multiple results with the same name can have a 1000/1000 score so we have to check if there are multiple results above the threshold.
+                            && results[1].score < assumeGoodMatchThreshold) {//Multiple results with the same name can have a 1000/1000 score so we have to check if there are multiple results above the threshold.
                             //If there is only one relevant result, we follow up with it, skipping the display of all results.
                             conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
                         } else {//If there are multiple results, and we couldn't take a guess, we display all results.
