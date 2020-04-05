@@ -24,6 +24,8 @@ const {id: TraktClientId, endpoint: TraktAPIEndpoint} = functions.config().trakt
 const {apikey: TMDBApiKey} = functions.config().tmdb;
 const util = require("./util");
 const traktApi = require("./trakt")(TraktClientId, TraktAPIEndpoint);
+let tmdb = require("./tmdb")(TMDBApiKey);
+
 
 // Create a Dialogflow client instance.
 const TraktAgent = dialogflow({
@@ -51,14 +53,6 @@ const Lifespans = {
 };
 
 
-
-let tmdb = {};
-tmdb.getImageUrl = (mediaType, TMDBId) => {
-    //TODO Implement TMDB API, this is a placeholder.
-    return 'https://image.tmdb.org/t/p/w600_and_h900_bestv2/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg';
-
-    //TODO : attribute images from TMDB.
-};
 
 //Todo : Correctly handle errors.
 
@@ -327,7 +321,7 @@ function displayItemChoice(conv, choice) {
             url: `https://trakt.tv/${choice.type}s/${item.ids.slug}`,//todo : this is only valid for show & movie
         }),
         image: new Image({
-            url: tmdb.getImageUrl(choice),//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
+            url: tmdb.getImageUrl(choice.type, item.ids.tmdb),//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
             alt: 'Batman logo from tmdb',
         }),
         display: 'WHITE',
