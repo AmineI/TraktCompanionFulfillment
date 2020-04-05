@@ -52,21 +52,10 @@ const Lifespans = {
     DEFAULT: 5,
 };
 
-
-
 //Todo : Correctly handle errors.
 
 //Todo : DialogFlow : Handle the case when user explicitly ask to refresh his information. or not since he can unlink through G.Assistant
-//Todo : In this case, tell him how to unlink account maybe ?
-/**
- * Launch the account linking request with the SignIn helper.
- * @param conv Conversation Object
- */
-function signInLauncher(conv) {
-    conv.ask("You'll have to authorize this application from your Trakt account so that you can interact with your lists from here.");
-    conv.ask(new SignIn('To let you manage your Trakt account'));
-    //Prompt the user to sign in, and then fire the `actions_intent_SIGN_IN` event, which starts any matching intent with that event as input.
-}
+const convs = require("./convs");
 
 /**
  * Handle the status of the user's sign in, after a response from the SignIn helper.
@@ -156,7 +145,7 @@ TraktAgent.intent('Default Welcome Intent - SignIn_Confirmation', (conv, params,
     //We'll either redirect him to the "sign in failed -> close conversation" path, or sign him in and he'll be then free to do what he wants
     conv.contexts.delete('DefaultWelcomeIntent-followup');
     if (confirmation) {
-        signInLauncher(conv);
+        convs.signIn.signInLauncher(conv);//TODO : Do not force login each time. Try to implement middleware like express
         return true;
     } else {
         return signInHandler(conv, {}, 'NotRequested');
@@ -164,7 +153,7 @@ TraktAgent.intent('Default Welcome Intent - SignIn_Confirmation', (conv, params,
 });
 
 // Intent that starts the account linking flow.
-TraktAgent.intent('Signin Request', (conv) => signInLauncher(conv));
+TraktAgent.intent('Signin Request', (conv) => convs.signIn.signInLauncher(conv));
 
 // The intent is linked to the `actions_intent_SIGN_IN` event, and thus starts when a sign in request is made, and is either refused or accepted
 TraktAgent.intent('Signin Action', (conv, params, signin) => signInHandler(conv, params, signin));
