@@ -435,26 +435,29 @@ function displayItemChoice(conv, choice) {
             'phone surface in the simulator.');
         //todo say the first result or something
     }
-// Create a basic card
+    // Create a basic card
     //Todo include dynamic info from search (should be in the choice var)
-    conv.ask("Sure, here are the details of *title*, is it ok ?");//Todo replace title, add action type
+    conv.ask(`Sure, here are the details of the ${choice.type} ${item.title}, is it ok ?`);
+
     conv.ask(new BasicCard({
-        text: `📱.  *emphasis* or _italics_, **strong** or
-  __bold__, and ***bold itallic*** or ___strong emphasis___ as well as other
-  things like line  \nbreaks`, // Note the two spaces before '\n' required for
-                               // a line break to be rendered in the card.
-        subtitle: 'This is a subtitle',
-        title: 'Title: this is a title',
+        subtitle: `Runtime ${item.runtime}min - ` + (item.tagline || `${item.aired_episodes} aired episodes`),//todo : tagline exists only on movies, and aired episodes only on shows. I believe.
+        title: `${item.title} (${item.year})`,
+        text: item.overview,
         buttons: new Button({
             title: 'Trakt page',
-            url: 'https://trakt.tv/',
+            url: `https://trakt.tv/${choice.type}s/${item.ids.slug}`,//todo : this is only valid for show & movie
         }),
         image: new Image({
-            url: 'https://image.tmdb.org/t/p/w600_and_h900_bestv2/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg',//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
+            url: tmdb.getImageUrl(choice),//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
             alt: 'Batman logo from tmdb',
         }),
         display: 'WHITE',
     }));
+    /*text2: `*emphasis* or _italics_, **strong** or __bold__,
+     and ***bold itallic*** or ___strong emphasis___ as well as other things like line  \nbreaks`,
+     // Note the two spaces before '\n' required for a line break to be rendered in the card.
+     //TODO remove text2 which is here for info purpose.
+ */
     return;
 
 }
