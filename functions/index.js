@@ -377,7 +377,7 @@ TraktAgent.intent('Checkin Start', (conv, params) => {
             media_type: media_type,
             year: year,
             search_page: 1, //todo handle this
-            take_best_result_above_threshold: true
+            takeBestResultAboveThreshold: true
         });//Watch out ! followup takes an *event* as input, and not an intent !
         //todo ?season_number:season_number,
         //Todo ? episode_number:episode_number
@@ -538,6 +538,51 @@ TraktAgent.intent('SearchDetails - Choice', (conv, params, option) => {
                 return;
             });
      */
+});
+
+TraktAgent.intent('SearchDetails', (conv, params) => {
+    //If the result relevance score is >=900/1000, we assume it is a relevant match and skip displaying the results list to the user.
+    const assumeGoodMatchThreshold = 900;//Todo : this is a test value to adjust.
+
+    //TODO HANDLE EPISODES/SHOWS. Working with movies rn.
+    let {media_type, search_page, textQuery, year, takeBestResultAboveThreshold} = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters;
+    //Google Assistant can send the object as an argument, but we can't do that by ourselves with conv.followup. So the data is in the event context
+
+    //Todo search only if the query changed.
+    return traktApi.getSearchResults(conv.user.access.token,
+        {textQuery, year},
+        parseInt(search_page), media_type, true, 5)
+        .then(response => {
+                let results = response.body;
+                //We store the search results in the context so that we can "continue" from here if the user needs to check the next page or go back to the search after a wrong choice.
+                conv.contexts.set(AppContexts.SEARCH_DETAILS, 5, {
+                    media_type,
+                    search_page, textQuery, year,
+                    results
+                });
+                switch (results.length) {
+                    case 0:
+                        conv.ask("There are no results. Please retry with another query.");
+                        break;
+                    case 1://If there is a single result, no need to display a list - we follow up as if the user choes this result.
+                        conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
+                        break;
+                    default://2 or more results
+                        if (takeBestResultAboveThreshold && results[0].score > assumeGoodMatchThreshold
+                            && results[1].score < threshold) {//Multiple results with the same name can have a 1000/1000 score so we have to check if there are multiple results above the threshold.
+                            //If there is only one relevant result, we follow up with it, skipping the display of all results.
+                            conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
+                        } else {//If there are multiple results, and we couldn't take a guess, we display all results.
+                            conv.ask("Here are the results");
+                            //todo see if a list is better suited than a carousel here. Useful sample https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js
+                            //Send to the user a carousel of results to choose from
+                            displayResultsCarousel(conv, results);
+                        }
+                        break;
+                }
+                return;
+            }
+        );
 });
 
 // Todo : Fill help intent text on dialogflow
