@@ -24,6 +24,15 @@ const CLIENT_ID = functions.config().traktclient.id;
 //>firebase functions:config:set traktclient.endpoint="https://api-staging.trakt.tv"
 const TraktAPIEndpoint = functions.config().traktclient.endpoint;
 
+// Create a Dialogflow client instance.
+const TraktAgent = dialogflow({
+    // The Trakt API client ID for my Action.
+    clientId: CLIENT_ID,
+    //Debug mode logs the raw JSON payload from the user request or response
+    debug: true,
+});
+
+
 /** Dialogflow Contexts {@link https://dialogflow.com/docs/contexts/input-output-contexts} */
     //Todo : See if I'd better use only one context for an addition and store the type of addition in it with an entity.
 const AppContexts = {
