@@ -96,13 +96,13 @@ traktApi.getUserSettings = function (token) {
  * @param types=["show","movie"] : string[] : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
  * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
  */
-traktApi.getSearchResults = function (token, textQuery, types = ["show", "movie"]) {
-    if (types === "") {
+traktApi.getSearchResults = function (token, {textQuery, year = ""}, page = 1, types = ["show", "movie"], extended = false, limit = 10) {
+    if (types === "") {//
         types = ["show", "movie"];
     }
     let searchOptions = {
         method: 'GET',
-        uri: `${TraktAPIEndpoint}/search/${types}?query=${encodeURIComponent(textQuery)}`, //-> search/type1,type2,type3?..
+        uri: `${TraktAPIEndpoint}/search/${types}?page=${page}&limit=${limit}${extended === true ? `&extended=full` : ''}${year !== "" ? `&years=${year}` : ''}&query=${encodeURIComponent(textQuery)}`, //-> search/type1,type2,type3?..
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
@@ -328,7 +328,7 @@ TraktAgent.intent('Checkin Start', (conv, params) => {
 
     //Todo : add the DATA_ADDITION to dialogflow intent
     //Todo : set contexts lifespan to super high on DF so that we don't forget the point if we take a lot of time in the search intent.
-    const {media_item_name, media_type, episode_number, season_number} = conv.contexts.input[AppContexts.DATA_ADDITION].parameters;
+    const {media_item_name, media_type, year, episode_number, season_number} = conv.contexts.get(AppContexts.DATA_ADDITION).parameters;
     //Todo : Mark some parameters as not required in DF if we want to be able to access the data collection intents ourselves for slot filling
 
     //Todo : If episode/season not given we assume it"s a movie
@@ -338,10 +338,15 @@ TraktAgent.intent('Checkin Start', (conv, params) => {
         conv.ask("Please provide the show/movie name");
         //Todo create a followup intent to handle this case
     } else {
-        conv.followup('SearchDetails', {
-            query: media_item_name,
-            media_type: media_type
-        });
+        conv.followup(AppContexts.SEARCH_DETAILS, {
+            textQuery: media_item_name,
+            media_type: media_type,
+            year: year,
+            search_page: 1, //todo handle this
+            take_best_result_above_threshold: true
+        });//Watch out ! followup takes an *event* as input, and not an intent !
+        //todo ?season_number:season_number,
+        //Todo ? episode_number:episode_number
 
         //Todo SearchDetails intent must go back to Checkin confirmation when finished.
         //conv.ask(new Confirmation(`Confirm checkin of ${media_item_name} ?`));//Todo mention episodes when needed through a message constructor.
@@ -386,11 +391,12 @@ TraktAgent.intent('SearchDetails', (conv, params) => {
 
 });
 
-//Todo and rename
-function displaychoice(conv, choice) {
+//Todo, specify between types, and rename
+function displayItemChoice(conv, choice) {
+    //Todo extract func to return only basic cards by media type
 
-//Todo Check parameters
-//todo
+    //todo Display depending on choice.type (movie,show, episode..)
+    let item = choice[choice.type];
 
     if (!conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
         conv.ask('Sorry, try this on a screen device or select the ' +
