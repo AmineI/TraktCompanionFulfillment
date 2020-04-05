@@ -55,9 +55,13 @@ class TMDB {
         if (mediaTMDBId == null) {
             return null;
         }
-        const posterPath = await this.getPosterPath(mediaType, mediaTMDBId);
-        return this.buildImageUrl(posterPath, ImageSize.Poster.ORIGINAL);
-        //TODO : Indicate somewhere that the image source is TMDB.
+        try {
+            const posterPath = await this.getPosterPath(mediaType, mediaTMDBId);
+            return this.buildImageUrl(posterPath, ImageSize.Poster.ORIGINAL);//TODO lower quality ? It's useless on a phone or other smart display to have a really big picture
+            //TODO : Indicate somewhere that the image source is TMDB.
+        } catch (err) {
+            return null;
+        }
     };
 
     async getPosterPath(mediaType, mediaId) {
