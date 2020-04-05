@@ -85,7 +85,7 @@ async function signInHandler(conv, params, signin) {
         //const accesstoken = conv.user.access.token;
 
         try {
-            let userSettings = (await traktApi.getUserSettings(conv.user.access.token)).body;
+            let userSettings = await traktApi.getUserSettings(conv.user.access.token);
 
             // Todo : This allows to avoid sending back the whole userStorage in turns where its content didn't change.
             // See https://developers.google.com/actions/assistant/save-data#clear_content_of_the_userstorage_field
@@ -242,94 +242,8 @@ TraktAgent.intent('Checkin Start - Confirmation', (conv, params) => {
 });
 
 
-//Todo, specify between types, and rename
-function displayResultsCarousel(conv, results) {
-
-    if (!conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
-        conv.ask('Sorry, try this on a screen device or select the ' +
-            'phone surface in the simulator.');
-        //todo say the first result or something
-    }
-    let type, item, itemTitle;
-    let carouselItems = {};
-    let itemIndex = 0;
-    let itemTitlesCountsArray = [];
-    results.forEach(result => {
-            type = result.type;
-            item = result[type];
-            itemTitle = `${item.title} (${item.year})`;
-
-            //Handle cases where multiple items have the same title, since this is not allowed by Google Assistant. We thus  append a number after the item.
-            if (itemTitle in itemTitlesCountsArray) {
-                itemTitlesCountsArray[itemTitle] += 1;
-                itemTitle += ` (${itemTitlesCountsArray[itemTitle]})`
-            } else {
-                itemTitlesCountsArray[itemTitle] = 1
-            }
-            // carouselItems must be a dictionary which key will be returned on selection.
-            // We use the index of the element in the search results as a key for ease of use when gathering the result after select.
-            carouselItems[itemIndex] = {
-                synonyms: [//TODO find synonyms ?
-                ],
-                title: itemTitle,//Titles must be unique.
-                description: item.overview,
-                image: new Image({
-                    url: tmdb.getPosterUrl(type, item.ids.tmdb),//TODO What if tmdb id not set ?
-                    alt: `Poster of ${item.title}`
-                })
-            };
-            itemIndex++;
-        }
-    );
-
-    conv.ask(new Carousel({
-        title: 'Matching Results',
-        items: carouselItems
-    }));
-    return;
-}
-
-//Todo, specify between types, and rename
-function displayItemChoice(conv, choice) {
-    //Todo extract func to return only basic cards by media type
-
-    //todo Display depending on choice.type (movie,show, episode..)
-    let item = choice[choice.type];
-
-    if (!conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
-        conv.ask('Sorry, try this on a screen device or select the ' +
-            'phone surface in the simulator.');
-        //todo say the first result or something
-    }
-    // Create a basic card
-    //Todo include dynamic info from search (should be in the choice var)
-    conv.ask(`Sure, here are the details of the ${choice.type} ${item.title}, is it ok ?`);
-
-    conv.ask(new BasicCard({
-        subtitle: `Runtime ${item.runtime}min - ` + (item.tagline || `${item.aired_episodes} aired episodes`),//todo : tagline exists only on movies, and aired episodes only on shows. I believe.
-        title: `${item.title} (${item.year})`,
-        text: item.overview,
-        buttons: new Button({
-            title: 'Trakt page',
-            url: `https://trakt.tv/${choice.type}s/${item.ids.slug}`,//todo : this is only valid for show & movie
-        }),
-        image: new Image({
-            url: tmdb.getPosterUrl(choice.type, item.ids.tmdb),//todo get from tvdb/tmdb since trakt doesn't give them anymore I think. CHeck their blog post https://apiblog.trakt.tv/how-to-find-the-best-images-516045bcc3b6
-            alt: 'Batman logo from tmdb',
-        }),
-        display: 'WHITE',
-    }));
-    /*text2: `*emphasis* or _italics_, **strong** or __bold__,
-     and ***bold itallic*** or ___strong emphasis___ as well as other things like line  \nbreaks`,
-     // Note the two spaces before '\n' required for a line break to be rendered in the card.
-     //TODO remove text2 which is here for info purpose.
- */
-    return;
-
-}
-
-//Answers to a choice event from google assistant and a search_choice_event from ourselvesan
-TraktAgent.intent('SearchDetails - Choice', (conv, params, option) => {
+//Answers to a choice event from google assistant and a search_choice_event from ourselves
+TraktAgent.intent('SearchDetails - Choice', async (conv, params, option) => {
     let chosenOptionIndex;
     //Google Assistant can send the object as an argument to the option parameter, but we can't do that by ourselves with conv.followup.
     //So the choosed option is either in the event context, or in the option parameter.
@@ -340,7 +254,8 @@ TraktAgent.intent('SearchDetails - Choice', (conv, params, option) => {
     let chosenItem = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters.results[chosenOptionIndex];
 
     conv.contexts.set(AppContexts.SEARCH_CHOICE, 1, {chosenItem});
-    displayItemChoice(conv, chosenItem);//todo Display depending on choice.type (movie,show, episode..)
+    let responses = await convs.richResponses.buildCardFromTraktItem(chosenItem, tmdb);//todo generate depending on choice.type (movie,show, episode..)
+    conv.ask(...responses);//The spread operator sends the responses array as if they were multiple parameters. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
 
     /* If the initial search was done without the "extended" parameter we have to do this to get more details
     return traktApi.getResultById(conv.user.access.token, chosen_option[chosen_option.type].ids.trakt, "trakt", chosen_option.type)
@@ -352,8 +267,8 @@ TraktAgent.intent('SearchDetails - Choice', (conv, params, option) => {
      */
 });
 
-TraktAgent.intent('SearchDetails', (conv, params) => {
-    //If the result relevance score is >=900/1000, we assume it is a relevant match and skip displaying the results list to the user.
+TraktAgent.intent('SearchDetails', async (conv, params) => {
+    //If the result relevance score is >=900/1000, we assume it is a relevant match and skip displaying the searchResults list to the user.
     const assumeGoodMatchThreshold = 900;//Todo : this is a test value to adjust.
 
     //TODO HANDLE EPISODES/SHOWS. Working with movies rn.
@@ -361,40 +276,36 @@ TraktAgent.intent('SearchDetails', (conv, params) => {
     //Google Assistant can send the object as an argument, but we can't do that by ourselves with conv.followup. So the data is in the event context
 
     //Todo search only if the query changed.
-    return traktApi.getSearchResults(conv.user.access.token,
-        {textQuery, year},
-        parseInt(search_page), media_type, true, 5)
-        .then(response => {
-                let results = response.body;
-                //We store the search results in the context so that we can "continue" from here if the user needs to check the next page or go back to the search after a wrong choice.
-                conv.contexts.set(AppContexts.SEARCH_DETAILS, 5, {
-                    media_type,
-                    search_page, textQuery, year,
-                    results
-                });
-                switch (results.length) {
-                    case 0:
-                        conv.ask("There are no results. Please retry with another query.");
-                        break;
-                    case 1://If there is a single result, no need to display a list - we follow up as if the user choes this result.
-                        conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
-                        break;
-                    default://2 or more results
-                        if (takeBestResultAboveThreshold && results[0].score > assumeGoodMatchThreshold
-                            && results[1].score < assumeGoodMatchThreshold) {//Multiple results with the same name can have a 1000/1000 score so we have to check if there are multiple results above the threshold.
-                            //If there is only one relevant result, we follow up with it, skipping the display of all results.
-                            conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
-                        } else {//If there are multiple results, and we couldn't take a guess, we display all results.
-                            conv.ask("Here are the results");
-                            //todo see if a list is better suited than a carousel here. Useful sample https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js
-                            //Send to the user a carousel of results to choose from
-                            displayResultsCarousel(conv, results);
-                        }
-                        break;
-                }
-                return;
+    let searchResults = await traktApi.getSearchResults({textQuery, year},
+        parseInt(search_page), media_type, true, 5);
+
+    //We store the search searchResults in the context so that we can "continue" from here if the user needs to check the next page or go back to the search after a wrong choice.
+    conv.contexts.set(AppContexts.SEARCH_DETAILS, 5, {
+        media_type,
+        search_page, textQuery, year,
+        results: searchResults
+    });
+    switch (searchResults.length) {
+        case 0:
+            conv.ask("There are no searchResults. Please retry with another query.");
+            break;
+        case 1://If there is a single result, no need to display a list - we follow up as if the user choes this result.
+            conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
+            break;
+        default://2 or more searchResults
+            if (takeBestResultAboveThreshold && searchResults[0].score > assumeGoodMatchThreshold
+                && searchResults[1].score < assumeGoodMatchThreshold) {//Multiple searchResults with the same name can have a 1000/1000 score so we have to check if there are multiple searchResults above the threshold.
+                //If there is only one relevant result, we follow up with it, skipping the display of all searchResults.
+                conv.followup(AppContexts.SEARCH_CHOICE, {option: 0});
+            } else {//If there are multiple searchResults, and we couldn't take a guess, we display all searchResults.
+                //todo see if a list is better suited than a carousel here. Useful sample https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js
+                //Send to the user a carousel of searchResults to choose from
+                let responses = (await convs.richResponses.buildCarouselFromTraktEntries(searchResults, tmdb));
+                conv.ask(...responses);//The spread operator sends the responses array as if they were multiple parameters. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
+                //TODO Del func displayResultsCarousel(conv, searchResults);
             }
-        );
+            break;
+    }
 });
 
 // Todo : Fill help intent text on dialogflow
