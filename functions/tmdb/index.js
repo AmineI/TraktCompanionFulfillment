@@ -1,6 +1,6 @@
 const axiosModule = require('axios').default;
 
-const tmdbEndpoint = "https://api.themoviedb.org/3/";
+const tmdbEndpoint = "https://api.themoviedb.org/3";
 const baseImageUrl = "http://image.tmdb.org/t/p/";
 
 const axios = axiosModule.create({
@@ -24,9 +24,10 @@ ImageSize = {
         "ORIGINAL": "original"
     },
     "Poster": {
-        "SUPER_SMALL": "w92",
-        "SMALL": "w154",
-        "MEDIUM": "w185",
+        "ULTRA_SMALL": "w92",
+        "SUPER_SMALL": "w154",
+        "SMALL": "w185",
+        "MEDIUM": "w342",
         "BIG": "w500",
         "SUPER_BIG": "w780",
         "ORIGINAL": "original"
@@ -57,7 +58,7 @@ class TMDB {
         }
         try {
             const posterPath = await this.getPosterPath(mediaType, mediaTMDBId);
-            return this.buildImageUrl(posterPath, ImageSize.Poster.ORIGINAL);//TODO lower quality ? It's useless on a phone or other smart display to have a really big picture
+            return this.buildImageUrl(posterPath, ImageSize.Poster.BIG);//TODO lower quality ? It's useless on a phone or other smart display to have a really big picture
             //TODO : Indicate somewhere that the image source is TMDB.
         } catch (err) {
             return null;
@@ -90,7 +91,7 @@ class TMDB {
         try {
             const res = await axios({
                 method: 'GET',
-                url: `movie/search/movie`,
+                url: `/movie/search/movie`,
                 params: {
                     api_key: this.APIKey,
                     query: movieName,
@@ -110,7 +111,7 @@ class TMDB {
         try {
             const res = await axios({
                 method: 'GET',
-                url: `movie/${movieid}${optionalPath}`,
+                url: `/movie/${movieid}${optionalPath}`,
                 params: Object.assign({
                     api_key: this.APIKey
                 }, optionalParams)
@@ -128,7 +129,7 @@ class TMDB {
         try {
             const res = await axios({
                 method: 'GET',
-                url: `tv/${showId}${optionalPath}`,
+                url: `/tv/${showId}${optionalPath}`,
                 params: Object.assign({
                     api_key: this.APIKey
                 }, optionalParams)
