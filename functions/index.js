@@ -387,39 +387,22 @@ TraktAgent.intent('Checkin Start', (conv, params) => {
     }
 });
 
-TraktAgent.intent('Checkin Start - Confirmation', (conv, params, confirmation) => {
-//Todo : redo this so it can followup after the search choice confirmation
-    if (!confirmation) {
-        conv.ask(`Fine, won't do. How else may I be of assistance ?`);
-        return false;
-    } else {
-//todo start checkin
-
-
-        conv.ask(`The checkin was successfully started`);
+TraktAgent.intent('Checkin Start - Confirmation', (conv, params) => {
+    conv.ask(`Sure`);
+    let confirmedItem = conv.contexts.get(AppContexts.SEARCH_CHOICE).parameters.chosenItem;
+    let type = confirmedItem.type;
+    let confirmedItemString = confirmedItem[type].title;
+    //TODO FOR EPISODE TOO. This works for movie but returns a show if we searched for an episode. We must get the episode from trakt.
+    if (type === "episode") {//TODO : the type will not be episode I think, but most likely a show, to which I'll add the episode number asked.
+        confirmedItemString += ` season ${confirmedItem.season} episode ${confirmedItem.number}`
+    }
+    return traktApi.CheckinItem(conv.user.access.token, {[type]: confirmedItem[type]})
+        .then(response => {console.log(response.statusCode);
+            conv.ask(`Check in ${confirmedItemString} confirmed ! Have a nice watch ! `);
         //Todo : delete addition data (& other) contexts on DF or here on success
         conv.ask(`Anything else I can do to assist ?`);
         return true;
     }
-});
-
-
-TraktAgent.intent('SearchDetails', (conv, params) => {
-
-    const search_data = conv.contexts.input[AppContexts.SEARCH_DETAILS].parameters;
-    //Todo store the search results somewhere in the context
-
-    return traktApi.getSearchResults(conv.user.access.token, search_data.query, search_data.media_type)
-        .then(response => {
-            console.log(response.body);
-            //Todo process body
-
-                //todo say or display media info, or build carousel/list if multiple results https://github.com/actions-on-google/dialogflow-conversation-components-nodejs/blob/master/functions/index.js useful sample
-            conv.ask("debug breakpt");
-                //todo : If only one pertinent choice, followup directly with it
-            //conv.followup('SearchDetails - Choice', {choice});
-                return true;
-            }
         ).catch(err => {
             console.error(err);
             //Todo handle different types of failure
