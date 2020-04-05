@@ -64,11 +64,10 @@ const convs = require("./convs");
  * @param signin signin.status=='OK' when the sign in was successfully completed.
  * @returns {Promise<T | boolean> | boolean} Promise that returns when the user's Trakt data has been fetched. //Todo : What data to fetch at this moment ? List Sync ?
  */
-function signInHandler(conv, params, signin) {
+async function signInHandler(conv, params, signin) {
     if (signin.status !== 'OK') {
         conv.close(`Without the authorization to do so on your Trakt account, I won't be able to update your lists or do anything for you.`);
 
-        // noinspection all //IDK Why my IDE says that SimpleResponse can't be instantiated, so BAM error suppression 😏.
         let NoSignInMessage2 = new SimpleResponse({
             speech: '<speak>If you believe I may be evil - <prosody volume="soft" pitch="-10%" rate="100%"> despite my beautiful voice </prosody>- ' +
                 'you can check my source code on GitHub ! <break time="0.5s"/>' +
@@ -82,30 +81,32 @@ function signInHandler(conv, params, signin) {
     } else {
         //const accesstoken = conv.user.access.token;
 
-        return traktApi.getUserSettings(conv.user.access.token)
-            .then(response => {
-                // Todo : This allows to avoid sending back the whole userStorage in turns where its content didn't change.
-                // See https://developers.google.com/actions/assistant/save-data#clear_content_of_the_userstorage_field
-                //conv.user.storage = {};
+        try {
+            let userSettings = (await traktApi.getUserSettings(conv.user.access.token)).body;
 
-                //Todo : Obtaining consent prior to accessing userStorage. [Some countries have regulations that require developers to obtain consent from the user before they can access, or save certain information (e.g. personal information) in the userStorage. If you operate in one of these countries and you want to access, or save such information in userStorage, you must use the Confirmation helper to ask consent to the user and obtain the consent before you can start storing such information in userStorage.]
-                //Todo : Tell user what we're saving and offer to change these
-                conv.user.storage.TraktUserSettings = {
-                    timezone: response.body.account.timezone,
-                    date_format: response.body.account.date_format,
-                    time_24hr: response.body.account.time_24hr,
-                };//Todo : Use timezone and format.
-                if (!conv.user.storage.name) {
-                    conv.user.storage.name = response.body.user.name.split(" ")[0];// Todo : intent to change the user name. There are prebuilt ones on DialogFlow
-                }
-                //Should I refresh these settings sometimes ?
-                conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to check in for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
-                conv.ask(`Don't hesitate to ask me for help if you can't handle all these possibilities ! Anything I can do for you right now ?`);
-                conv.ask(new Suggestions("What can you do ?", "I'm watching Batman", "What's next to watch ?", "Call me Master"));
-                //Todo change these suggestions.
-                return true;
-            })
-            .catch((conv, err) => util.requestErrorHandler(conv, err));
+            // Todo : This allows to avoid sending back the whole userStorage in turns where its content didn't change.
+            // See https://developers.google.com/actions/assistant/save-data#clear_content_of_the_userstorage_field
+            //conv.user.storage = {};
+
+            //Todo : Obtaining consent prior to accessing userStorage. [Some countries have regulations that require developers to obtain consent from the user before they can access, or save certain information (e.g. personal information) in the userStorage. If you operate in one of these countries and you want to access, or save such information in userStorage, you must use the Confirmation helper to ask consent to the user and obtain the consent before you can start storing such information in userStorage.]
+            //Todo : Tell user what we're saving and offer to change these
+            conv.user.storage.TraktUserSettings = {
+                timezone: userSettings.account.timezone,
+                date_format: userSettings.account.date_format,
+                time_24hr: userSettings.account.time_24hr,
+            };//Todo : Use timezone and format.
+            conv.user.storage.name = userSettings.user.name.split(" ")[0];// Todo : intent to change the user name. There are prebuilt ones on DialogFlow
+
+            //Should I refresh these settings sometimes ?
+            conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to check in for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
+            conv.ask(`Don't hesitate to ask me for help if you can't handle all these possibilities ! Anything I can do for you right now ?`);
+            conv.ask(new Suggestions("What can you do ?", "I'm watching Batman", "What's next to watch ?", "Call me Master"));
+            //Todo change these suggestions and shorten this dialog.
+
+
+        } catch (err) {
+            util.requestErrorHandler(conv, err)
+        }
     }
 
 }
