@@ -20,9 +20,29 @@ to make an chatbot available through talking with the Google Assistant and the v
 It seemed to be quite a good match for starting this project, starting with the "Check-in" functionality, 
 and before eventually extending it to more platforms and features.
 
+####Fulfillment for DialogFlow
+
+This project has two parts. This one, which is a fullfillment webhook, intended to be used along with [Dialogflow](https://dialogflow.com/). 
+Dialogflow has NLP capabilities just like [wit.ai](http://wit.ai), and is able to recognize intents and entities we define.
+It also provides multiple integration channels.
+
+Google Assistant is one of these, and this project was made with Google Assistant in mind,
+so that it could be used both writing or talking to a phone or voice-enabled assistant.
+
+The other part is the one on DialogFlow, where I defined relevants Intents and entities, along with training the model.
+ 
+####Account linking with Actions On Google (AoG)
+
+Google offers on its platform an [account linking](https://developers.google.com/assistant/identity/google-sign-in-oauth) feature,
+allowing the user to be seamlessly associated to his trakt account.
+
+We can then proceed with API requests with the obtained short-lived user token Google provides us on the behalf of the user.
+
+To achieve this, a Trakt.tv API App has to be created on Trakt.tv, and the client id & secret have to be entered into AoG, the project settings. 
+
 ###Usage
 
-###Deployment & Hosting
+###Deployment & Hosting of the Fulfillment webhook
 
 
 ####Prerequisites
