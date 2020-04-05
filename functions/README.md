@@ -9,8 +9,11 @@
 0. Install the package dependencies with `npm install`
 
 0. Create a Firebase project in the [Firebase console](https://firebase.google.com/console)
+
 0. Authenticate to the Firebase CLI through `firebase login`
+
 0. Run `firebase init functions` to initialise //TODO : CHECK THAT STEP
+
 0. Create an account and client app on [staging.Trakt.tv](http://staging.trakt.tv), and take note of your client Id.
 
     [staging.Trakt.tv](http://staging.trakt.tv) is an endpoint used for testing, to avoid filling the main site with test data.
@@ -31,6 +34,13 @@
 
     In that case, have a tool ready for proxying the connexion through an HTTPS proxy, as per Dialogflow's guidelines requiring a HTTPS webhook.
     I recommend [ngrok](http://ngrok.com) . Take note of the https endpoint given to you.
+    
+    It is also needed to write the functions configuration variables beforehand, with 
+    ```
+       firebase functions:config:get > .runtimeconfig.json
+       # If using Windows PowerShell, replace the above with:
+       firebase functions:config:get | ac .runtimeconfig.json
+  ```
 
 - With `npm deploy` the project can be deployed to firebase functions hosting.
 
