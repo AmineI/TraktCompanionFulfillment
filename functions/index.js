@@ -462,8 +462,28 @@ function displayItemChoice(conv, choice) {
 
 }
 
-TraktAgent.intent('SearchDetails - Choice', (conv, {choice}) => {
-    displaychoice(conv, choice)
+//Answers to a choice event from google assistant and a search_choice_event from ourselvesan
+TraktAgent.intent('SearchDetails - Choice', (conv, params, option) => {
+    let chosenOptionIndex;
+    //Google Assistant can send the object as an argument to the option parameter, but we can't do that by ourselves with conv.followup.
+    //So the choosed option is either in the event context, or in the option parameter.
+
+    let eventContext = conv.contexts.get(AppContexts.SEARCH_CHOICE);
+    chosenOptionIndex = (eventContext !== undefined) ? eventContext.parameters.option : option;
+
+    let chosenItem = conv.contexts.get(AppContexts.SEARCH_DETAILS).parameters.results[chosenOptionIndex];
+
+    conv.contexts.set(AppContexts.SEARCH_CHOICE, 1, {chosenItem});
+    displayItemChoice(conv, chosenItem);//todo Display depending on choice.type (movie,show, episode..)
+
+    /* If the initial search was done without the "extended" parameter we have to do this to get more details
+    return traktApi.getResultById(conv.user.access.token, chosen_option[chosen_option.type].ids.trakt, "trakt", chosen_option.type)
+        .then(response => {
+                let result = response.body[0];
+                displayItemChoice(conv, result);
+                return;
+            });
+     */
 });
 
 // Todo : Fill help intent text on dialogflow
