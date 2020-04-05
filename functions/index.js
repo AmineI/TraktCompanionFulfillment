@@ -93,8 +93,12 @@ traktApi.getUserSettings = function (token) {
  *
  * @param token auth Access token
  * @param textQuery : string Text query to search for
- * @param types=["show","movie"] : string[] : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
+ * @param years : number 4 digit year, or range of years
+ * @param page : number result page to get
+ * @param types=["show","movie"] : (string[]|string) : ["show","movie","episode"] A list to filter the search - obtaining only the media types specified.
  * Todo POSSIBLE_MEDIA_TYPES = { SHOW: "show", MOVIE: "movie", EPISODE: "episode"}
+ * @param extended : boolean whether to get extended results or not.
+ * @param limit : number number of items per page.
  */
 traktApi.getSearchResults = function (token, {textQuery, year = ""}, page = 1, types = ["show", "movie"], extended = false, limit = 10) {
     if (types === "") {//
