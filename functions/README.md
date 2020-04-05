@@ -1,3 +1,25 @@
+###Context and motivations
+[Trakt.tv](http://trakt.tv) is one of the various services offering to remember your TV shows & movies, 
+the ones you watched, the ratings you gave, but also those still in your watchlist.
+
+One of the main features of the website is the "Check-in" : 
+It sets your account status as "Currently watching _*the movie/show you are watching*_",
+eventually broadcasts this information on social media if you chose to, and adds it to your "Watch history" with the correct date and time.
+
+It is basically what you do just before the movie starts at the theater, or on the couch at home with your friends or family.
+
+But it is not such a fast process - you have to find your phone, open the browser on the Trakt.tv website, login, 
+search and find the movie you're about to watch, and finally check in !
+Add that with the usual poor network in theaters, or your surroundings, and it's easy to give up this routine. 
+
+At home, with Voice Enabled assistants, a few sentences would be enough to do all that, or eventually a quick text on a phone assistant.
+
+The [Actions on Google](https://developers.google.com/assistant) platform allows any developer 
+to make an chatbot available through talking with the Google Assistant and the various surface it is available on.
+
+It seemed to be quite a good match for starting this project, starting with the "Check-in" functionality, 
+and before eventually extending it to more platforms and features.
+
 
 ####Prerequisites
 0. Create a Firebase project in the [Firebase console](https://firebase.google.com/console). 
