@@ -11,7 +11,8 @@ const {
     Suggestions,
     BasicCard,
     Button,
-    Image
+    Image,
+    Carousel
 } = require('actions-on-google');
 // Import the firebase-functions package for deployment.
 const functions = require('firebase-functions');
@@ -419,10 +420,62 @@ TraktAgent.intent('SearchDetails', (conv, params) => {
             //conv.followup('SearchDetails - Choice', {choice});
                 return true;
             }
-        );
-
-
+        ).catch(err => {
+            console.error(err);
+            //Todo handle different types of failure
+            conv.ask(`There was an issue checking in ${confirmedItemString}.`);
+            return;
+        });
 });
+
+
+//Todo, specify between types, and rename
+function displayResultsCarousel(conv, results) {
+
+    if (!conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
+        conv.ask('Sorry, try this on a screen device or select the ' +
+            'phone surface in the simulator.');
+        //todo say the first result or something
+    }
+
+    let type, item, itemTitle;
+    let carouselItems = {};
+    let itemIndex = 0;
+    let itemTitlesCountsArray = [];
+    results.forEach(result => {
+            type = result.type;
+            item = result[type];
+            itemTitle = `${item.title} (${item.year})`;
+
+            //Handle cases where multiple items have the same title, since this is not allowed by Google Assistant. We thus  append a number after the item.
+            if (itemTitle in itemTitlesCountsArray) {
+                itemTitlesCountsArray[itemTitle] += 1;
+                itemTitle += ` (${itemTitlesCountsArray[itemTitle]})`
+            } else {
+                itemTitlesCountsArray[itemTitle] = 1
+            }
+            // carouselItems must be a dictionary which key will be returned on selection.
+            // We use the index of the element in the search results as a key for ease of use when gathering the result after select.
+            carouselItems[itemIndex] = {
+                synonyms: [//TODO find synonyms ?
+                ],
+                title: itemTitle,//Titles must be unique.
+                description: item.overview,
+                image: new Image({
+                    url: tmdb.getImageUrl(type, item.ids.tmdb),//TODO What if tmdb id not set ?
+                    alt: `Poster of ${item.title}`
+                })
+            };
+            itemIndex++;
+        }
+    );
+
+    conv.ask(new Carousel({
+        title: 'Matching Results',
+        items: carouselItems
+    }));
+    return;
+}
 
 //Todo, specify between types, and rename
 function displayItemChoice(conv, choice) {
