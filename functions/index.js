@@ -204,7 +204,7 @@ function signInHandler(conv, params, signin) {
                 //Should I refresh these settings sometimes ?
                 conv.ask(`Now that I have your authorization, ${conv.user.storage.name}, I'll be able to check in for you, add something to your watchlist, and more regarding your Trakt lists and history.`);
                 conv.ask(`Don't hesitate to ask me for help if you can't handle all these possibilities ! Anything I can do for you right now ?`);
-                conv.ask(new Suggestions("What can you do ?", "Call me Master", "I'm watching Batman", "What's next to watch ?"));
+                conv.ask(new Suggestions("What can you do ?", "I'm watching Batman", "What's next to watch ?", "Call me Master"));
                 //Todo change these suggestions.
                 return true;
             })
