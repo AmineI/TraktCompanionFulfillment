@@ -79,7 +79,7 @@ The webhook is hosted on my firebase project plan. To test it, you can host one 
 
 0. Authenticate to the Firebase CLI through `firebase login`
 
-0. Run `firebase init functions` to initialise //TODO : CHECK THAT STEP
+0. Run `firebase init functions` to initialize the project
 
 0. Create an account and client app on [staging.Trakt.tv](http://staging.trakt.tv), and take note of your client Id.
 
