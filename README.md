@@ -1,4 +1,4 @@
-# Small GIFs available below to showcase the features !
+Note - This was started in 2018 as a learning project and needs quite a few refactorisations :) .
 
 ### Context and motivations
 [Trakt.tv](http://trakt.tv) is one of the various services offering to remember your TV shows & movies, 
